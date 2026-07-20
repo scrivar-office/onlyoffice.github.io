@@ -429,6 +429,8 @@ async function initWithTranslate(counter) {
 	initCounter |= counter;
 	if (3 === initCounter) {
 		initCounter = 5;
+		/* SCRIVAR-REBRAND (P3): seed first-run provider/model config from ./preinstall.json */
+		await AI.Storage.preinstall();
 		await AI.loadInternalProviders();
 		await AI.loadHelperTranslations();
 		await registerButtons(window);

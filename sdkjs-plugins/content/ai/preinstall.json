@@ -1,0 +1,32 @@
+{
+	"providers": {
+		"Scrivar AI": {
+			"name": "Scrivar AI",
+			"url": "http://127.0.0.1:41317/v1",
+			"key": "",
+			"models": [
+				{
+					"id": "scrivar-ai",
+					"name": "Scrivar AI",
+					"object": "model",
+					"endpoints": [1],
+					"options": {}
+				}
+			]
+		}
+	},
+	"models": [
+		{
+			"id": "scrivar-ai",
+			"name": "Scrivar AI",
+			"provider": "Scrivar AI",
+			"capabilities": 1
+		}
+	],
+	"actions": {
+		"Chat": { "model": "scrivar-ai" },
+		"Summarization": { "model": "scrivar-ai" },
+		"Translation": { "model": "scrivar-ai" },
+		"TextAnalyze": { "model": "scrivar-ai" }
+	}
+}

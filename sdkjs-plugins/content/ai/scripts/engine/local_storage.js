@@ -188,6 +188,59 @@
 		return obj ? true : false;
 	};
 
+	// SCRIVAR-REBRAND begin (P3): preinstall loader.
+	// On a first run with empty/absent plugin storage, seed providers/models
+	// and default action models from ./preinstall.json shipped at the plugin
+	// root (same schema as scripts/engine/providers/preinstall-example.json,
+	// which upstream 3.2.3 ships but never loads). Runs once, BEFORE the
+	// regular loadInternalProviders()/Storage.load() pipeline, so the
+	// synchronous timing of AI.Storage.load() is unchanged.
+	AI.Storage.preinstall = async function() {
+		try {
+			if (AI.serverSettings)
+				return;
+
+			let existing = null;
+			try {
+				existing = JSON.parse(window.localStorage.getItem(localStorageKey));
+			} catch (e) {
+			}
+			if (existing && existing.version === AI.Storage.Version)
+				return;
+
+			let text = await AI.loadResourceAsText("./preinstall.json");
+			if (!text)
+				return;
+
+			let pre = JSON.parse(text);
+			if (!pre || !pre.providers)
+				return;
+
+			window.localStorage.setItem(localStorageKey, JSON.stringify({
+				version : AI.Storage.Version,
+				providers : pre.providers,
+				models : pre.models || [],
+				customProviders : pre.customProviders || {}
+			}));
+
+			// Default models for actions — only fill actions that are unset,
+			// so a model already picked by the user/desktop always wins.
+			if (pre.actions && AI.Actions) {
+				let changed = false;
+				for (let type in pre.actions) {
+					if (AI.Actions[type] && pre.actions[type].model && !AI.Actions[type].model) {
+						AI.Actions[type].model = pre.actions[type].model;
+						changed = true;
+					}
+				}
+				if (changed && AI.ActionsSave)
+					AI.ActionsSave();
+			}
+		} catch (e) {
+		}
+	};
+	// SCRIVAR-REBRAND end (P3)
+
 	AI.Storage.addModel = function(model) {
 
 		if (AI.Providers[model.provider.name]) {

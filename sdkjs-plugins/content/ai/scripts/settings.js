@@ -94,6 +94,30 @@ window.Asc.plugin.init = function() {
 
 	/* SCRIVAR-LOCK: hide the "Edit AI models" link — provider/model set is fixed. */
 	$('#edit-ai-models').hide();
+
+	// SCRIVAR-SUBSCRIBE: Cloud & AI status row atop the dialog. State from
+	// the resident launcher /status; Subscribe opens the manage window.
+	try {
+		fetch('http://127.0.0.1:41317/status').then(function(r){ return r.json(); }).then(function(st){
+			if (document.getElementById('scrivar-cloudai-row')) return;
+			var row = document.createElement('div');
+			row.id = 'scrivar-cloudai-row';
+			row.style.cssText = 'margin-bottom:10px;font-size:13px;';
+			if (st && st.subscribed) {
+				var b = document.createElement('b'); b.textContent = 'Cloud & AI';
+				var a = document.createElement('span'); a.className = 'i18n'; a.textContent = ': Active';
+				row.appendChild(b); row.appendChild(a);
+			} else {
+				var lbl = document.createElement('span'); lbl.className = 'i18n'; lbl.textContent = 'Cloud & AI is not active.';
+				var btn = document.createElement('button'); btn.className = 'form-control btn-text-default i18n';
+				btn.style.cssText = 'display:block;margin-top:6px;'; btn.textContent = 'Subscribe to Cloud & AI';
+				btn.addEventListener('click', function(){ window.open('scrivar-office://manage'); });
+				row.appendChild(lbl); row.appendChild(btn);
+			}
+			var desc = document.getElementById('description');
+			if (desc && desc.parentNode) desc.parentNode.insertBefore(row, desc);
+		}).catch(function(){});
+	} catch (e) {}
 }
 window.Asc.plugin.onThemeChanged = onThemeChanged;
 

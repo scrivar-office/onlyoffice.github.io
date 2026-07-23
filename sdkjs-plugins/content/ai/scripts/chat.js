@@ -585,6 +585,32 @@
 			document.getElementById('total_tokens').innerText = 0;
 		};
 
+		// SCRIVAR-SUBSCRIBE: when Cloud & AI is not active, show a Subscribe
+		// card in the empty-state. State from the resident launcher /status;
+		// the button opens the launcher manage window (AGPL: fork holds only
+		// the localhost URL + the custom scheme, no account/token logic).
+		try {
+			fetch('http://127.0.0.1:41317/status').then(function(r){ return r.json(); }).then(function(st){
+				if (st && st.subscribed) return;
+				if (document.getElementById('scrivar-subscribe-cta')) return;
+				var host = document.getElementById('start_panel') || document.getElementById('chat');
+				if (!host) return;
+				var cta = document.createElement('div');
+				cta.id = 'scrivar-subscribe-cta';
+				cta.style.cssText = 'margin:10px 12px;padding:12px;border:1px solid var(--border-Regular,#e0e0e0);border-radius:8px;text-align:center;';
+				var msg = document.createElement('div');
+				msg.className = 'i18n';
+				msg.style.cssText = 'font-size:13px;margin-bottom:8px;';
+				msg.textContent = 'Cloud & AI is not active. Subscribe to use AI features.';
+				var btn = document.createElement('button');
+				btn.className = 'form-control btn-text-default i18n';
+				btn.textContent = 'Subscribe to Cloud & AI';
+				btn.addEventListener('click', function(){ window.open('scrivar-office://manage'); });
+				cta.appendChild(msg); cta.appendChild(btn);
+				host.insertBefore(cta, host.firstChild);
+			}).catch(function(){});
+		} catch (e) {}
+
 		document.getElementById("chat_wrapper").addEventListener("click", function(e) {
 			if (e.target.tagName === "A") {
 				e.preventDefault();

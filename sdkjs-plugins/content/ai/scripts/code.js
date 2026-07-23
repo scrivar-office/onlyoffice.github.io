@@ -1207,6 +1207,7 @@ async function customAssistantOnClickToolbarIcon(assistantId, buttonAssistant)
  * MODELS WINDOW
  */
 function onOpenAiModelsModal() {
+	return; /* SCRIVAR-LOCK: AI models list (add/edit/delete) disabled */
 	if (settingsWindow) {
 		settingsWindow.close();
 		settingsWindow = null;
@@ -1321,6 +1322,7 @@ async function detectFunctionCallingSupport(model) {
  * ADD/EDIT WINDOW
  */
 function onOpenEditModal(data) {
+	return; /* SCRIVAR-LOCK: add/edit model window disabled */
 	let variation = {
 		url : 'aiModelEdit.html',
 		description : data.type == 'add' ? window.Asc.plugin.tr('Add AI Model') : window.Asc.plugin.tr('Edit AI Model'),
@@ -1385,6 +1387,7 @@ function onOpenEditModal(data) {
  * CUSTOM PROVIDERS WINDOW
  */
 function onOpenCustomProvidersModal() {
+	return; /* SCRIVAR-LOCK: custom-providers window disabled */
 	let variation = {
 		url : 'customProviders.html',
 		description : window.Asc.plugin.tr('Custom providers'),

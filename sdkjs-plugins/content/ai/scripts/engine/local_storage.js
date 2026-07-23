@@ -242,6 +242,7 @@
 	// SCRIVAR-REBRAND end (P3)
 
 	AI.Storage.addModel = function(model) {
+		return; /* SCRIVAR-LOCK: provider/model set is fixed to Scrivar AI */
 
 		if (AI.Providers[model.provider.name]) {
 			AI.Providers[model.provider.name].name = model.provider.name;
@@ -278,6 +279,7 @@
 	};
 
 	AI.Storage.removeModel = function(modelId) {
+		return; /* SCRIVAR-LOCK: provider/model set is fixed to Scrivar AI */
 		for (let i = 0, len = AI.Models.length; i < len; i++)
 		{
 			if (AI.Models[i].id === modelId)

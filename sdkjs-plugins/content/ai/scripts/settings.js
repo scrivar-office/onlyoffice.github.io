@@ -92,9 +92,8 @@ window.Asc.plugin.init = function() {
 	});
 	window.Asc.plugin.attachEvent("onThemeChanged", onThemeChanged);
 
-	$('#edit-ai-models label').click(function(e) {
-		window.Asc.plugin.sendToPlugin("onOpenAiModelsModal");
-	});
+	/* SCRIVAR-LOCK: hide the "Edit AI models" link — provider/model set is fixed. */
+	$('#edit-ai-models').hide();
 }
 window.Asc.plugin.onThemeChanged = onThemeChanged;
 
@@ -260,19 +259,7 @@ function updatedComboBoxes() {
 			});
 		}
 		*/
-		options.push(
-			{
-				text: '-',
-				children: []
-			},
-			{
-				id: 'add',
-				text: window.Asc.plugin.tr("Add AI Model"),
-				handler: function() {
-					window.Asc.plugin.sendToPlugin("onOpenAddModal");
-				}
-			}
-		);
+		/* SCRIVAR-LOCK: Scrivar AI is the only provider — no "Add AI Model" entry. */
 
 		selectEl.select2().empty();
 		selectEl.select2({

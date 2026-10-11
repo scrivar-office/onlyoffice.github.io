@@ -163,11 +163,24 @@ function fetchExternal(url, options, isStreaming) {
 					body: message.isBlob ? message.body : (message.body ? JSON.stringify(message.body) : ""),
 					complete: function(e, status) {
 						let data = JSON.parse(e.responseText);
+						// SCRIVAR-NOTICE: an {"error":{...}} body is an error, not a completion.
+						if (data && data.error) {
+							resolve({error: 1, message: data.error.message ? data.error.message : ((typeof data.error === "string") ? data.error : "")});
+							return;
+						}
 						resolve({error: 0, data: data.data ? data.data : data});
 					},
 					error: function(e, status, error) {
 						if ( e.statusCode == -102 ) e.statusCode = 404;
-						resolve({error: e.statusCode, message: "Internal error"});
+						// SCRIVAR-NOTICE: surface the server's message when it sent one.
+						let message = "Internal error";
+						try {
+							let body = JSON.parse(e.responseText);
+							if (body && body.error && body.error.message)
+								message = body.error.message;
+						} catch (err) {
+						}
+						resolve({error: e.statusCode, message: message});
 					}
 				});
 			} else {

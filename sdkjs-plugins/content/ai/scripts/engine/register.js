@@ -138,6 +138,14 @@ async function registerButtons(window, undefined)
 			if (!requestEngine)
 				return;
 
+			// SCRIVAR-NOTICE: show request errors (no add-on, offline, limits)
+			// inline in the chat instead of an editor toast + "Error: [provider]".
+			let scrivarNotice = false;
+			requestEngine.setErrorHandler(function(err) {
+				scrivarNotice = true;
+				chatWindow.command("onChatNotice", (err && err.message) ? err.message : "");
+			});
+
 			if (!window.EditorHelper)
 				window.EditorHelper = new EditorHelperImpl();
 
@@ -214,6 +222,8 @@ async function registerButtons(window, undefined)
 				if (AgentState.isStopped)
 					break;
 
+				if (!fullResponse && scrivarNotice)
+					break;
 				if (!fullResponse)
 					fullResponse = { content : Asc.plugin.tr("Error:") + " [provider]" };
 
@@ -744,7 +754,7 @@ async function registerButtons(window, undefined)
 		await Asc.Library.AddOleObject(result, content);
 	}
 
-	if (true)
+	if (false) // SCRIVAR-LOCK: Scrivar AI is text-only (no image generation / OCR / vision)
 	{
 		let buttonImages = new Asc.ButtonContextMenu(buttonMain);
 		buttonImages.text = "Image";

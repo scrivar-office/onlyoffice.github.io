@@ -437,7 +437,7 @@ async function initWithTranslate(counter) {
 		Asc.Buttons.registerContextMenu();
 		Asc.Buttons.registerToolbarMenu();
 
-		if (Asc.Editor.getType() === "pdf") {
+		if (false && Asc.Editor.getType() === "pdf") { // SCRIVAR-TEXT-ONLY: no OCR model in Scrivar AI
 			window.Asc.plugin.attachEditorEvent("onChangeRestrictions", function(value){
 				let disabled = (value & 0x80) !== 0;
 				if (window.buttonOCRPage.disabled !== disabled)

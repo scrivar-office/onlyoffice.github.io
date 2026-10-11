@@ -81,7 +81,11 @@ var heightUpdateConditions = {
 window.Asc.plugin.init = function() {
 	window.Asc.plugin.sendToPlugin("onInit");
 	window.Asc.plugin.attachEvent("onUpdateActions", function(list) {
-		actionsList = list;
+		// SCRIVAR-TEXT-ONLY: Scrivar AI serves text actions only; hide the
+		// Image generation / OCR / Vision rows (they could never get a model).
+		actionsList = (list || []).filter(function(a) {
+			return ['Chat', 'Summarization', 'Translation', 'TextAnalyze'].indexOf(a.id) !== -1;
+		});
 		renderActionsList();
 		heightUpdateConditions.updateActionsReady();
 	});

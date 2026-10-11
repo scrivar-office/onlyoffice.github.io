@@ -237,7 +237,17 @@
 					$messageContent.prepend($attachedWrapper);
 				}
 			} else {
-				if(item.error) {
+				if(item.error === 'scrivar_notice') {
+					// SCRIVAR-NOTICE: launcher notice (no add-on, offline, limits) —
+					// readable text + a way to Cloud & AI, and no insert/copy actions.
+					const $notice = $('<div class="message_content_error_desc"></div>');
+					$notice.text(item.content[0] || '');
+					const $open = $('<button class="form-control btn-text-default" style="margin-top:8px;"></button>');
+					$open.text(window.Asc.plugin.tr('Open Cloud & AI'));
+					$open.on('click', function() { window.open('scrivar-office://manage'); });
+					$messageContent.append($notice);
+					$messageContent.append($open);
+				} else if(item.error) {
 					const errorObj = errorsMap[item.error];
 					const $error = $(
 						'<div class="message_content_error_title">' +
@@ -585,31 +595,39 @@
 			document.getElementById('total_tokens').innerText = 0;
 		};
 
-		// SCRIVAR-SUBSCRIBE: when Cloud & AI is not active, show a Subscribe
-		// card in the empty-state. State from the resident launcher /status;
-		// the button opens the launcher manage window (AGPL: fork holds only
-		// the localhost URL + the custom scheme, no account/token logic).
-		try {
-			fetch('http://127.0.0.1:41317/status').then(function(r){ return r.json(); }).then(function(st){
-				if (st && st.subscribed) return;
-				if (document.getElementById('scrivar-subscribe-cta')) return;
-				var host = document.getElementById('start_panel') || document.getElementById('chat');
-				if (!host) return;
-				var cta = document.createElement('div');
-				cta.id = 'scrivar-subscribe-cta';
-				cta.style.cssText = 'margin:10px 12px;padding:12px;border:1px solid var(--border-Regular,#e0e0e0);border-radius:8px;text-align:center;';
-				var msg = document.createElement('div');
-				msg.className = 'i18n';
-				msg.style.cssText = 'font-size:13px;margin-bottom:8px;';
-				msg.textContent = 'Cloud & AI is not active. Subscribe to use AI features.';
-				var btn = document.createElement('button');
-				btn.className = 'form-control btn-text-default i18n';
-				btn.textContent = 'Subscribe to Cloud & AI';
-				btn.addEventListener('click', function(){ window.open('scrivar-office://manage'); });
-				cta.appendChild(msg); cta.appendChild(btn);
-				host.insertBefore(cta, host.firstChild);
-			}).catch(function(){});
-		} catch (e) {}
+		// SCRIVAR-SUBSCRIBE / SCRIVAR-NOTICE: a Subscribe banner pinned ABOVE the
+		// conversation (outside the scrolling list, so it never scrolls away),
+		// shown while Cloud & AI is not active and re-checked after every reply.
+		// State from the resident launcher /status; the button opens the
+		// launcher manage window (AGPL: no account/token logic in the fork).
+		window.scrivarRefreshCta = function() {
+			try {
+				fetch('http://127.0.0.1:41317/status').then(function(r){ return r.json(); }).then(function(st){
+					var existing = document.getElementById('scrivar-subscribe-cta');
+					if (st && st.subscribed) {
+						if (existing) existing.remove();
+						return;
+					}
+					if (existing) return;
+					var win = document.getElementById('chat_window');
+					var wrapper = document.getElementById('chat_wrapper');
+					if (!win || !wrapper) return;
+					var cta = document.createElement('div');
+					cta.id = 'scrivar-subscribe-cta';
+					cta.style.cssText = 'margin:0 0 8px 0;padding:10px 12px;border:1px solid var(--border-Regular,#e0e0e0);border-radius:8px;text-align:center;flex-shrink:0;';
+					var msg = document.createElement('div');
+					msg.style.cssText = 'font-size:13px;margin-bottom:8px;';
+					msg.textContent = window.Asc.plugin.tr('Cloud & AI is not active. Subscribe to use AI features.');
+					var btn = document.createElement('button');
+					btn.className = 'form-control btn-text-default';
+					btn.textContent = window.Asc.plugin.tr('Subscribe to Cloud & AI');
+					btn.addEventListener('click', function(){ window.open('scrivar-office://manage'); });
+					cta.appendChild(msg); cta.appendChild(btn);
+					win.insertBefore(cta, wrapper);
+				}).catch(function(){});
+			} catch (e) {}
+		};
+		window.scrivarRefreshCta();
 
 		document.getElementById("chat_wrapper").addEventListener("click", function(e) {
 			if (e.target.tagName === "A") {
@@ -1011,6 +1029,14 @@
 
 	window.Asc.plugin.onThemeChanged = onThemeChanged;
 
+	// SCRIVAR-NOTICE: request errors arrive here instead of as a reply.
+	window.Asc.plugin.attachEvent("onChatNotice", function(message) {
+		messagesList.add({ role: 'assistant', content: [message || window.Asc.plugin.tr('Something went wrong')], error: 'scrivar_notice' });
+		removeTyping();
+		finishAgentExecution();
+		window.scrivarRefreshCta && window.scrivarRefreshCta();
+	});
+
 	window.Asc.plugin.attachEvent("onChatReply", function(reply) {
 		if (isAgentStopped) {
 			removeTyping();
@@ -1024,6 +1050,7 @@
 		}
 
 		messagesList.add({ role: 'assistant', content: [reply], error: errorCode });
+		window.scrivarRefreshCta && window.scrivarRefreshCta();
 
 		removeTyping();
 		finishAgentExecution();

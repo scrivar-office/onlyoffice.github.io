@@ -239,13 +239,11 @@
 			} else {
 				if(item.error === 'scrivar_notice') {
 					// SCRIVAR-NOTICE: launcher notice (no add-on, offline, limits) —
-					// readable text + a way to Cloud & AI, and no insert/copy actions.
-					const $notice = $('<div class="message_content_error_desc"></div>');
-					$notice.text(item.content[0] || '');
+					// the text is already rendered as the message body; add a way to
+					// Cloud & AI and NO insert/copy/replace actions.
 					const $open = $('<button class="form-control btn-text-default" style="margin-top:8px;"></button>');
 					$open.text(window.Asc.plugin.tr('Open Cloud & AI'));
 					$open.on('click', function() { window.open('scrivar-office://manage'); });
-					$messageContent.append($notice);
 					$messageContent.append($open);
 				} else if(item.error) {
 					const errorObj = errorsMap[item.error];

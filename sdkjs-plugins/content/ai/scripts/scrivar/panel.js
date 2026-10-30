@@ -362,6 +362,9 @@
 		var strip = document.getElementById('scrivar_tabs');
 		if (!strip)
 			return;
+		// Both <html> and <body> get the class: the CSS pins the page to the
+		// panel height (no document scroll can push the strip out of view).
+		document.documentElement.classList.add('scrivar-has-tabs');
 		document.body.classList.add('scrivar-has-tabs');
 		strip.addEventListener('click', function(e) {
 			var btn = e.target.closest ? e.target.closest('[data-tab]') : null;

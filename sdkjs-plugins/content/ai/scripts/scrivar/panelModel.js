@@ -276,6 +276,26 @@
 		return parts.join(' · ');
 	}
 
+	/**
+	 * The visible note on a truncated reference, or null. The server keeps the
+	 * first 50 pages of a long document (and at most 150,000 characters); when
+	 * the page count is unknown, say so without a number.
+	 */
+	function truncationNote(ref) {
+		if (!ref || !ref.truncated)
+			return null;
+		if (typeof ref.pageCount === 'number' && ref.pageCount > 0)
+			return 'Only the first 50 pages are used.';
+		return 'Only the first part of this document is used.';
+	}
+
+	/** Suggestions shown when the reference library is empty. */
+	var EMPTY_SUGGESTIONS = [
+		{ title: 'Company profile', hint: 'Who you are, services, area, contact details', kind: 'facts' },
+		{ title: 'Price list', hint: 'Products or services and what they cost', kind: 'facts' },
+		{ title: 'Writing sample', hint: 'A past letter or proposal you liked', kind: 'sample' }
+	];
+
 	/** Title for "Use this document as reference": the file name without its extension. */
 	function titleFromDocument(name) {
 		var t = str(name).split(/[\\/]/).pop().replace(/\.[A-Za-z0-9]{1,5}$/, '').trim();
@@ -314,6 +334,8 @@
 		groupLibrary: groupLibrary,
 		formatNumber: formatNumber,
 		refDetail: refDetail,
+		truncationNote: truncationNote,
+		EMPTY_SUGGESTIONS: EMPTY_SUGGESTIONS,
 		titleFromDocument: titleFromDocument,
 		keepRulesExtension: keepRulesExtension
 	};

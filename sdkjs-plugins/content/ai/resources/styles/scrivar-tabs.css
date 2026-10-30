@@ -783,7 +783,6 @@ body.scrivar-has-tabs:not(.scrivar-view-chat) #chat_window {
 	font-size: 10px;
 	font-weight: 600;
 	line-height: 15px;
-	cursor: help;
 }
 
 .theme-type-dark .sv-badge {
@@ -865,4 +864,26 @@ body.scrivar-has-tabs:not(.scrivar-view-chat) #chat_window {
 	border-top: 1px solid var(--sv-divider);
 	color: var(--sv-text-3);
 	font-size: 11px;
+}
+
+.sv-ref-note {
+	margin-top: 2px;
+	color: #8A5A00;
+	font-size: 11px;
+}
+
+.theme-type-dark .sv-ref-note {
+	color: var(--sv-amber);
+}
+
+.sv-suggest-intro {
+	margin-bottom: 6px;
+}
+
+.scrivar-tabpanel .btn-text-default.sv-suggest-upload {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 0 10px;
 }

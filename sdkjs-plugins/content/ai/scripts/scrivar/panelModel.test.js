@@ -236,3 +236,20 @@ test('panel docText returns the document text and a title; unknown ops are refus
 	assert.equal(bad.ok, false);
 	delete globalThis.Asc;
 });
+
+// ---- fix round 1: truncation note + empty-library suggestions ---------------------
+
+test('truncationNote: visible sentence for truncated references (pages known vs unknown)', () => {
+	assert.equal(M.truncationNote(LIB[0]), null, 'not truncated');
+	assert.equal(M.truncationNote(LIB[1]), 'Only the first 50 pages are used.');
+	assert.equal(M.truncationNote({ truncated: true, pageCount: null, charCount: 150000 }), 'Only the first part of this document is used.');
+	assert.equal(M.truncationNote({ truncated: true, charCount: 150000 }), 'Only the first part of this document is used.');
+});
+
+test('EMPTY_SUGGESTIONS: Company profile, Price list, Writing sample with the exact hints', () => {
+	assert.deepEqual(M.EMPTY_SUGGESTIONS, [
+		{ title: 'Company profile', hint: 'Who you are, services, area, contact details', kind: 'facts' },
+		{ title: 'Price list', hint: 'Products or services and what they cost', kind: 'facts' },
+		{ title: 'Writing sample', hint: 'A past letter or proposal you liked', kind: 'sample' },
+	]);
+});

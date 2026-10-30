@@ -246,13 +246,14 @@
 	function refRow(ref, ro) {
 		var state = M.toggleState(lib.list, selectedIds(), ref, lib.limits);
 		var meta = [el('span', { text: M.refDetail(ref) })];
-		if (ref.truncated)
-			meta.push(el('span', { class: 'sv-badge', text: tr('Truncated'),
-				title: tr('Only the first %1 characters are used.').replace('%1', M.formatNumber(lib.limits.maxChars)) }));
+		var note = M.truncationNote(ref);
+		if (note)
+			meta.push(el('span', { class: 'sv-badge', text: tr('Truncated') }));
 		var row = el('li', { class: 'sv-ref' + (state.on ? ' on' : '') + (state.disabled ? ' blocked' : '') }, [
 			el('div', { class: 'sv-ref-main' }, [
 				el('div', { class: 'sv-ref-title', text: ref.title, title: ref.filename || ref.title }),
-				el('div', { class: 'sv-ref-meta' }, meta)
+				el('div', { class: 'sv-ref-meta' }, meta),
+				note ? el('div', { class: 'sv-ref-note', text: tr(note) }) : null
 			]),
 			switchButton(ref, state, ro)
 		]);
@@ -282,6 +283,31 @@
 			children.push(el('ul', { class: 'sv-refs' }, refs.map(function(r) { return refRow(r, ro); })));
 		else if (!(ui.busy && ui.busy.kind === kind))
 			children.push(el('div', { class: 'sv-empty', text: tr(emptyText) }));
+		return el('div', { class: 'sv-section' }, children);
+	}
+
+	/** Empty library: suggest what to add, each with a hint and an Upload button. */
+	function emptyLibrary(ro) {
+		var children = [
+			el('div', { class: 'sv-label' }, [el('span', { text: tr('Your library is empty') })]),
+			el('div', { class: 'sv-empty sv-suggest-intro', text: tr('Add documents the AI can use. Good places to start:') })
+		];
+		if (ui.busy && (ui.busy.kind === 'facts' || ui.busy.kind === 'sample'))
+			children.push(el('div', { class: 'sv-busy' }, [el('span', { class: 'sv-spinner', 'aria-hidden': 'true' }), el('span', { text: ui.busy.text })]));
+		children.push(el('ul', { class: 'sv-refs sv-suggest' }, M.EMPTY_SUGGESTIONS.map(function(sg) {
+			return el('li', { class: 'sv-ref' }, [
+				el('div', { class: 'sv-ref-main' }, [
+					el('div', { class: 'sv-ref-title', text: tr(sg.title) }),
+					el('div', { class: 'sv-ref-meta' }, [el('span', { text: tr(sg.hint) })])
+				]),
+				ro ? null : el('button', {
+					type: 'button', class: 'form-control btn-text-default sv-suggest-upload',
+					'aria-label': tr('Upload') + ' ' + tr(sg.title),
+					title: tr('Upload a .docx, .pdf, .txt or .md file'),
+					onclick: function() { if (!ui.busy) pickFile(sg.kind); }
+				}, [icon(ICON_UPLOAD), el('span', { text: tr('Upload') })])
+			]);
+		})));
 		return el('div', { class: 'sv-section' }, children);
 	}
 
@@ -379,9 +405,13 @@
 				]));
 			}
 			body.appendChild(meterView());
-			var g = M.groupLibrary(lib.list);
-			body.appendChild(group('facts', 'Facts', 'Add a company profile or a price list so the AI gets names, numbers and details right.', g.facts, ro));
-			body.appendChild(group('sample', 'Writing samples', 'Add something you wrote so the AI can match your style.', g.sample, ro));
+			if (lib.list.length === 0) {
+				body.appendChild(emptyLibrary(ro));
+			} else {
+				var g = M.groupLibrary(lib.list);
+				body.appendChild(group('facts', 'Facts', 'Add a company profile or a price list so the AI gets names, numbers and details right.', g.facts, ro));
+				body.appendChild(group('sample', 'Writing samples', 'Add something you wrote so the AI can match your style.', g.sample, ro));
+			}
 			var mv = missingView(M.missingIds(lib.list, selectedIds()), ro);
 			if (mv) body.appendChild(mv);
 			var ud = useDocView(ro);

@@ -132,6 +132,7 @@
 	var docLayer = null;          // sanitized layer of the open document
 	var docLayerLoadedAt = 0;     // last DEFINITE read (a failed read leaves it alone)
 	var docLayerInflight = null;
+	var docStorage = null;        // 'properties' | 'local' from the last definite read/write
 	var lastSubscribeAt = 0;
 
 	var defer = (typeof queueMicrotask === 'function')
@@ -244,6 +245,12 @@
 	 * count as a refresh.
 	 */
 	async function loadDocLayer() {
+		await readDocLayer();
+		return docLayer;
+	}
+
+	/** One read; true when it was a definite answer (and replaced the cache). */
+	async function readDocLayer() {
 		var res = null;
 		try {
 			res = await DocProps.read();
@@ -251,23 +258,101 @@
 			res = null;
 		}
 		if (!res || res.ok !== true)
-			return docLayer;
+			return false;
 		docLayer = DocProps.sanitizeLayer(res.layer);
 		docLayerLoadedAt = Date.now();
-		return docLayer;
+		if (res.storage)
+			docStorage = res.storage;
+		return true;
 	}
 
 	/** Store the document's rule layer in the file (null clears it); the cache is updated directly. */
 	async function saveDocLayer(layer) {
 		var clean = layer === null || layer === undefined ? null : DocProps.sanitizeLayer(layer);
-		await DocProps.write(clean);
+		var where = await DocProps.write(clean);
 		docLayer = clean;
 		docLayerLoadedAt = Date.now();
+		if (where === 'properties' || where === 'local')
+			docStorage = where;
+		return where;
 	}
 
 	/** 'properties' (stored in the file) or 'local' (this computer only). */
 	function docStorageKind() {
-		return DocProps.storageKindFor((root.Asc && root.Asc.plugin && root.Asc.plugin.info) || {});
+		return docStorage || DocProps.storageKindFor((root.Asc && root.Asc.plugin && root.Asc.plugin.info) || {});
+	}
+
+	// ---- the AI panel's Rules / References tabs (chat.html) --------------------
+	// Plugin WINDOWS must not issue callCommand themselves: a window's command
+	// bypasses the shared queue (DocProps.runCommand) and can take upstream's
+	// single callback slot. So the tabs ask THIS page (the background plugin
+	// page) for every document read/write, over the window's own messaging:
+	//   window -> here:  sendToPlugin('onScrivarPanel', { reqId, op, ... })
+	//   here -> window:  chatWindow.command('onScrivarPanelReply', { reqId, ok, ... })
+	// ops:
+	//   'docLayer.get'   -> { layer, storage }      (ok:false when the file gave no answer
+	//                                                and nothing was read before: the window
+	//                                                must not save over rules it never saw)
+	//   'docLayer.save'  { layer } -> { layer, storage }   (also refreshes this page's cache,
+	//                                                so annotators use the new rules at once)
+	//   'docText'        -> { text, truncated, title }     (code UNSUPPORTED when unreadable)
+	// Settings API calls (rules, library) are plain fetches from the window.
+
+	function infoNow() {
+		return (root.Asc && root.Asc.plugin && root.Asc.plugin.info) || {};
+	}
+
+	function panelError(reqId, message, code) {
+		return { reqId: reqId, ok: false, code: code || 'FAILED', message: message };
+	}
+
+	async function handlePanelMessage(msg) {
+		var reqId = msg && msg.reqId;
+		var op = msg && msg.op;
+		try {
+			if (op === 'docLayer.get') {
+				var definite = false;
+				var inflight = docLayerInflight;
+				if (inflight) {
+					await inflight.catch(function() {});
+					definite = docLayerLoadedAt > 0;
+				}
+				if (!definite)
+					definite = await readDocLayer();
+				if (!definite && !docLayerLoadedAt)
+					return panelError(reqId, 'Couldn\'t read this document\'s rules. Try again in a moment.', 'NO_ANSWER');
+				return { reqId: reqId, ok: true, layer: docLayer || DocProps.sanitizeLayer({}), storage: docStorageKind(),
+					editorType: infoNow().editorType || null };
+			}
+			if (op === 'docLayer.save') {
+				await saveDocLayer(msg.layer === null ? null : (msg.layer || {}));
+				return { reqId: reqId, ok: true, layer: docLayer || DocProps.sanitizeLayer({}), storage: docStorageKind() };
+			}
+			if (op === 'docText') {
+				var res = await DocProps.readDocumentText();
+				if (!res)
+					return panelError(reqId, 'The editor is busy. Try again in a moment.', 'NO_ANSWER');
+				if (res.unsupported || typeof res.text !== 'string')
+					return panelError(reqId, 'This file\'s text can\'t be read here. Upload the file instead.', 'UNSUPPORTED');
+				if (!res.text.trim())
+					return panelError(reqId, 'This document has no text yet.', 'NO_TEXT');
+				return { reqId: reqId, ok: true, text: res.text, truncated: !!res.truncated, title: infoNow().documentTitle || '' };
+			}
+			return panelError(reqId, 'Unknown request.', 'BAD_OP');
+		} catch (e) {
+			return panelError(reqId, (e && e.message) || 'Something went wrong. Try again.');
+		}
+	}
+
+	/** Wire the chat window (register.js chatWindowShow) to handlePanelMessage. */
+	function attachPanel(chatWindow) {
+		if (!chatWindow || typeof chatWindow.attachEvent !== 'function')
+			return;
+		chatWindow.attachEvent('onScrivarPanel', function(msg) {
+			handlePanelMessage(msg).then(function(reply) {
+				try { chatWindow.command('onScrivarPanelReply', reply); } catch (e) {}
+			});
+		});
 	}
 
 	/**
@@ -368,6 +453,8 @@
 		loadDocLayer: loadDocLayer,
 		saveDocLayer: saveDocLayer,
 		docStorageKind: docStorageKind,
+		handlePanelMessage: handlePanelMessage,
+		attachPanel: attachPanel,
 		api: api,
 		openManage: openManage,
 		routeErrorToSubscribe: routeErrorToSubscribe,

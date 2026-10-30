@@ -51,8 +51,26 @@
 	<script type="text/javascript" src="scripts/chatVoice.js"></script>
 	<script type="text/javascript" src="scripts/chat.js"></script>
 
+	<!-- SCRIVAR-TABS: Chat / Rules / References. Document reads/writes are done by
+	     the background plugin page (the window never runs editor commands). -->
+	<link rel="stylesheet" href="./resources/styles/scrivar-tabs.css">
+	<script type="text/javascript" src="scripts/scrivar/docProps.js"></script>
+	<script type="text/javascript" src="scripts/scrivar/context.js"></script>
+	<script type="text/javascript" src="scripts/scrivar/panelModel.js"></script>
+	<script type="text/javascript" src="scripts/scrivar/panel.js"></script>
+	<script type="text/javascript" src="scripts/scrivar/rulesTab.js"></script>
+	<script type="text/javascript" src="scripts/scrivar/referencesTab.js"></script>
+
 </head>
 <body style="display: flex;">
+	<!-- SCRIVAR-TABS: tab strip -->
+	<div id="scrivar_tabs" class="scrivar-tabs" role="tablist" aria-label="AI">
+		<button type="button" class="scrivar-tab selected" data-tab="chat" role="tab" aria-selected="true" aria-controls="chat_window"><span class="i18n">Chat</span></button>
+		<button type="button" class="scrivar-tab" data-tab="rules" role="tab" aria-selected="false" aria-controls="scrivar_tab_rules" tabindex="-1"><span class="i18n">Rules</span></button>
+		<button type="button" class="scrivar-tab" data-tab="references" role="tab" aria-selected="false" aria-controls="scrivar_tab_references" tabindex="-1"><span class="i18n">References</span></button>
+	</div>
+	<div id="scrivar_tab_rules" class="scrivar-tabpanel hidden" role="tabpanel"></div>
+	<div id="scrivar_tab_references" class="scrivar-tabpanel hidden" role="tabpanel"></div>
 	<div id="chat_window" class="chat_window hidden">
 		<div id="chat_wrapper" class="form-control empty">
 			<div id="chat" class="noselect">

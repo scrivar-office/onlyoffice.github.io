@@ -63,7 +63,8 @@ async function registerButtons(window, undefined)
 		if (!requestEngine)
 			return;
 
-		let panelPlace = window.localStorage.getItem("onlyoffice_ai_chat_placement") || "window";
+		// SCRIVAR-TABS: the AI panel opens docked on the right unless the user undocked it
+		let panelPlace = window.localStorage.getItem("onlyoffice_ai_chat_placement") || "panelRight";
 		if (panelPlace === "panel")
 			panelPlace = "panelRight";
 
@@ -127,6 +128,9 @@ async function registerButtons(window, undefined)
 		}
 		window.AgentState.ToolError = ToolError;
 
+		// SCRIVAR-TABS: the Rules / References tabs ask THIS page for every document
+		// read/write (the shared command queue); see AI.Scrivar.attachPanel
+		if (window.AI && AI.Scrivar && AI.Scrivar.attachPanel) AI.Scrivar.attachPanel(chatWindow);
 		chatWindow.attachEvent("onStopAgent", function() {
 			AgentState.isStopped = true;
 		});

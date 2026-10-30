@@ -369,7 +369,8 @@
 
 	/**
 	 * Read the open document's raw stored layer. Never throws.
-	 *   { ok: true,  layer: object|null }  — a definite answer (null = no rules)
+	 *   { ok: true,  layer: object|null, storage: 'properties'|'local' }
+	 *                                      — a definite answer (null = no rules)
 	 *   { ok: false }                      — no answer (timeout, or the editor
 	 *     skipped the command during a long "Block" action): callers must keep
 	 *     what they had, not treat it as "no rules".
@@ -377,15 +378,15 @@
 	async function read() {
 		var info = pluginInfo();
 		if (storageKindFor(info) === 'local')
-			return { ok: true, layer: readLocal(info) };
+			return { ok: true, layer: readLocal(info), storage: 'local' };
 		var res = await readViaApi();
 		if (!res)
 			return { ok: false };
 		if (res.unsupported)
-			return { ok: true, layer: readLocal(info) };
+			return { ok: true, layer: readLocal(info), storage: 'local' };
 		if (!Array.isArray(res.values) || !(res.count > 0))
-			return { ok: true, layer: null };
-		return { ok: true, layer: decodeChunks(res.values) };
+			return { ok: true, layer: null, storage: 'properties' };
+		return { ok: true, layer: decodeChunks(res.values), storage: 'properties' };
 	}
 
 	/** Store `obj` (null clears). Throws when the editor refused the write. */
@@ -405,6 +406,75 @@
 		return 'properties';
 	}
 
+	var DOC_TEXT_CAP = 150001;   // one past the server's per-document cap, so it marks the reference truncated
+
+	/**
+	 * The open document's plain text, for "Use this document as reference".
+	 * Runs through the shared command queue. Word: the whole body; slides: every
+	 * shape's text, slide by slide; spreadsheets: each sheet's used range as
+	 * tab-separated rows. -> { text, truncated } | { unsupported: true } | null (no answer).
+	 */
+	function readDocumentText(timeoutMs) {
+		var info = pluginInfo();
+		root.Asc.scope.scrivarEditor = info.editorSubType === 'pdf' ? 'pdf' : info.editorType;
+		root.Asc.scope.scrivarTextCap = DOC_TEXT_CAP;
+		return callCommandJson(function() {
+			var t = Asc.scope.scrivarEditor;
+			var cap = Asc.scope.scrivarTextCap;
+			var opts = { Numbering: true, Math: false, TableCellSeparator: '\t', TableRowSeparator: '\n',
+				ParaSeparator: '\n', TabSymbol: '\t', NewLineSeparator: '\n' };
+			var out = [];
+			var size = 0;
+			function push(s) {
+				if (typeof s !== 'string' || !s) return;
+				out.push(s);
+				size += s.length + 1;
+			}
+			try {
+				if (t === 'word') {
+					var doc = Api.GetDocument();
+					if (doc && typeof doc.GetText === 'function') {
+						push(doc.GetText(opts));
+					} else {
+						for (var i = 0; doc && i < doc.GetElementsCount() && size < cap; i++) {
+							var el = doc.GetElement(i);
+							if (el && typeof el.GetText === 'function') push(el.GetText());
+						}
+					}
+				} else if (t === 'slide') {
+					var slides = Api.GetPresentation().GetAllSlides() || [];
+					for (var s = 0; s < slides.length && size < cap; s++) {
+						var drawings = slides[s].GetAllDrawings() || [];
+						for (var d = 0; d < drawings.length && size < cap; d++) {
+							var dc = typeof drawings[d].GetDocContent === 'function' ? drawings[d].GetDocContent() : null;
+							if (dc && typeof dc.GetText === 'function') push(dc.GetText(opts).trim());
+						}
+					}
+				} else if (t === 'cell') {
+					var sheets = (typeof Api.GetSheets === 'function') ? Api.GetSheets() : Api.GetActiveWorkbook().GetSheets();
+					for (var k = 0; sheets && k < sheets.length && size < cap; k++) {
+						var used = sheets[k].GetUsedRange();
+						var v = used ? used.GetText() : '';
+						var rows = Array.isArray(v) ? v : [[v]];
+						var lines = [];
+						for (var r = 0; r < rows.length; r++) {
+							var row = Array.isArray(rows[r]) ? rows[r] : [rows[r]];
+							var line = row.join('\t');
+							if (line.replace(/\t/g, '').trim()) lines.push(line);
+						}
+						if (lines.length) push(sheets[k].GetName() + '\n' + lines.join('\n'));
+					}
+				} else {
+					return JSON.stringify({ unsupported: true });
+				}
+			} catch (e) {
+				return JSON.stringify({ unsupported: true });
+			}
+			var text = out.join('\n\n');
+			return JSON.stringify({ text: text.substring(0, cap), truncated: text.length > cap });
+		}, timeoutMs || 15000);
+	}
+
 	var api = {
 		CHUNK_MAX: CHUNK_MAX,
 		PROP_PREFIX: PROP_PREFIX,
@@ -419,7 +489,8 @@
 		readViaApi: readViaApi,
 		writeViaApi: writeViaApi,
 		read: read,
-		write: write
+		write: write,
+		readDocumentText: readDocumentText
 	};
 
 	root.ScrivarDocProps = api;

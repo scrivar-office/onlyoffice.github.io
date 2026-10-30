@@ -1,0 +1,868 @@
+/*
+ * Scrivar Office modifications to the ONLYOFFICE AI plugin.
+ * Copyright (c) 2026 Scrivar Inc. Licensed under the GNU AGPL v3, like the
+ * plugin it modifies (see ../../LICENSE.txt).
+ *
+ * The AI panel's tab strip (Chat / Rules / References) and the Rules and
+ * References tabs. Colours come from the editor theme variables the plugin
+ * already sets (scripts/utils/theme.js updateThemeVariables), with light
+ * fallbacks; dark tweaks hang off body.theme-type-dark like chat.css.
+ */
+
+body.scrivar-has-tabs {
+	flex-direction: column;
+	--sv-accent: var(--background-accent-button, #4F46E5);
+	--sv-amber: #E8A317;
+	--sv-text: var(--text-normal, rgba(0, 0, 0, 0.8));
+	--sv-text-2: var(--text-secondary, rgba(0, 0, 0, 0.6));
+	--sv-text-3: var(--text-tertiary, rgba(0, 0, 0, 0.4));
+	--sv-bg: var(--background-normal, #fff);
+	--sv-bg-2: var(--background-toolbar-additional, #efefef);
+	--sv-border: var(--border-regular-control, #c0c0c0);
+	--sv-divider: var(--border-toolbar, #dfdfdf);
+	--sv-hover: var(--highlight-button-hover, #e0e0e0);
+	--sv-chip-bg: #FBEAEA;
+	--sv-chip-fg: #9F2A2A;
+	--sv-ok: #2E7D4F;
+	--sv-err: #C0392B;
+	--sv-font: "Segoe UI", Arial, Helvetica, "Helvetica Neue", sans-serif;
+}
+
+body.scrivar-has-tabs.theme-type-dark {
+	--sv-amber: #F0B429;
+	--sv-chip-bg: rgba(239, 83, 80, 0.16);
+	--sv-chip-fg: #F4A6A3;
+	--sv-ok: #7BC79A;
+	--sv-err: #F08A80;
+}
+
+body.scrivar-has-tabs:not(.scrivar-view-chat) #chat_window {
+	display: none !important;
+}
+
+/* ── Tab strip ─────────────────────────────────────────────────────────────── */
+
+.scrivar-tabs {
+	display: flex;
+	flex-shrink: 0;
+	gap: 2px;
+	padding: 0 8px;
+	border-bottom: 1px solid var(--sv-divider);
+	font-family: var(--sv-font);
+	user-select: none;
+}
+
+.scrivar-tab {
+	flex: 1 1 0;
+	position: relative;
+	min-width: 0;
+	height: 34px;
+	padding: 0 6px;
+	border: none;
+	background: transparent;
+	color: var(--sv-text-2);
+	font-family: inherit;
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.scrivar-tab:hover {
+	color: var(--sv-text);
+}
+
+.scrivar-tab.selected {
+	color: var(--sv-text);
+}
+
+.scrivar-tab.selected::after {
+	content: '';
+	position: absolute;
+	left: 10px;
+	right: 10px;
+	bottom: -1px;
+	height: 2px;
+	border-radius: 2px 2px 0 0;
+	background: var(--sv-accent);
+}
+
+.scrivar-tab:focus-visible {
+	outline: 1px solid var(--border-control-focus, #848484);
+	outline-offset: -4px;
+	border-radius: 3px;
+}
+
+/* ── Tab panels ────────────────────────────────────────────────────────────── */
+
+.scrivar-tabpanel {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	color: var(--sv-text);
+	font-family: var(--sv-font);
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.scrivar-tabpanel.hidden {
+	display: none;
+}
+
+.sv-body {
+	padding: 12px 12px 16px;
+}
+
+.sv-svg {
+	flex-shrink: 0;
+	display: block;
+}
+
+/* Segmented switch */
+.sv-seg {
+	display: flex;
+	padding: 2px;
+	border-radius: 6px;
+	background: var(--sv-bg-2);
+	margin-bottom: 8px;
+}
+
+.sv-seg-btn {
+	flex: 1 1 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 26px;
+	border: none;
+	border-radius: 5px;
+	background: transparent;
+	color: var(--sv-text-2);
+	font-family: inherit;
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.sv-seg-btn:hover {
+	color: var(--sv-text);
+}
+
+.sv-seg-btn.selected {
+	background: var(--sv-accent);
+	color: #fff;
+}
+
+.sv-seg-count {
+	min-width: 16px;
+	height: 16px;
+	padding: 0 4px;
+	box-sizing: border-box;
+	border-radius: 8px;
+	background: var(--sv-amber);
+	color: #1f1300;
+	font-size: 10px;
+	line-height: 16px;
+	text-align: center;
+}
+
+.sv-scope-hint {
+	color: var(--sv-text-2);
+	font-size: 11px;
+	margin: 0 2px 4px;
+}
+
+/* Sections */
+.sv-section {
+	margin-top: 14px;
+}
+
+.sv-label {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 6px;
+	color: var(--sv-text-2);
+	font-size: 10.5px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.sv-label-aside {
+	color: var(--sv-text-3);
+	font-weight: 600;
+	letter-spacing: 0;
+}
+
+.sv-label .sv-upload {
+	margin-left: auto;
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+/* Text fields (inherit the plugin's .form-control theme colours) */
+.scrivar-tabpanel textarea.form-control {
+	display: block;
+	width: 100%;
+	height: auto;
+	min-height: 30px;
+	padding: 6px 8px;
+	border-radius: 4px;
+	font-family: inherit;
+	font-size: 12px;
+	line-height: 1.45;
+	resize: none;
+	overflow: hidden;
+}
+
+.sv-doc-edge {
+	border-left: 3px solid var(--sv-amber) !important;
+}
+
+/* Avoid chips */
+.sv-chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px;
+	min-height: 30px;
+	padding: 4px;
+	box-sizing: border-box;
+	border: 1px solid var(--sv-border);
+	border-radius: 4px;
+	background: var(--sv-bg);
+	cursor: text;
+}
+
+.sv-chips.readonly {
+	cursor: default;
+	opacity: 0.85;
+}
+
+.sv-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	max-width: 100%;
+	height: 20px;
+	padding: 0 3px 0 8px;
+	box-sizing: border-box;
+	border-radius: 10px;
+	background: var(--sv-chip-bg);
+	color: var(--sv-chip-fg);
+	font-size: 11px;
+}
+
+.sv-chips.readonly .sv-chip {
+	padding-right: 8px;
+}
+
+.sv-chip-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sv-chip-x {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	padding: 0;
+	border: none;
+	border-radius: 8px;
+	background: transparent;
+	color: inherit;
+	opacity: 0.7;
+	cursor: pointer;
+}
+
+.sv-chip-x .sv-svg {
+	width: 9px;
+	height: 9px;
+}
+
+.sv-chip-x:hover {
+	opacity: 1;
+	background: rgba(0, 0, 0, 0.08);
+}
+
+.theme-type-dark .sv-chip-x:hover {
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.sv-chip-input {
+	flex: 1 1 90px;
+	min-width: 90px;
+	height: 20px;
+	padding: 0 4px;
+	border: none;
+	outline: none;
+	background: transparent;
+	color: var(--sv-text);
+	font-family: inherit;
+	font-size: 12px;
+}
+
+.sv-chip-input::placeholder,
+.scrivar-tabpanel textarea::placeholder {
+	color: var(--sv-text-3);
+}
+
+/* Rules */
+.sv-rules {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.sv-rule {
+	position: relative;
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 7px 8px;
+	border: 1px solid var(--sv-border);
+	border-radius: 4px;
+	background: var(--sv-bg);
+}
+
+.sv-rule-doc {
+	border-left: 3px solid var(--sv-amber);
+	padding-left: 6px;
+}
+
+.sv-rule-num {
+	flex-shrink: 0;
+	min-width: 14px;
+	color: var(--sv-accent);
+	font-weight: 700;
+	text-align: right;
+}
+
+.sv-rule-doc .sv-rule-num {
+	color: var(--sv-amber);
+}
+
+.theme-type-dark .sv-rule-num {
+	color: var(--sv-text-2);
+}
+
+.theme-type-dark .sv-rule-doc .sv-rule-num {
+	color: var(--sv-amber);
+}
+
+.sv-rule-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+	border-radius: 2px;
+}
+
+.sv-rule-text[role="button"] {
+	cursor: text;
+}
+
+.sv-rule-text:focus-visible {
+	outline: 1px solid var(--border-control-focus, #848484);
+	outline-offset: 2px;
+}
+
+.sv-rule .sv-rule-edit {
+	flex: 1 1 auto;
+	margin: -4px 0;
+	padding: 3px 6px;
+	min-height: 24px;
+}
+
+.sv-icon-btn {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	margin: -2px -3px -2px 0;
+	padding: 0;
+	border: none;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--sv-text-3);
+	cursor: pointer;
+}
+
+.sv-icon-btn:hover,
+.sv-icon-btn:focus-visible {
+	background: var(--sv-hover);
+	color: var(--sv-text);
+	outline: none;
+}
+
+.sv-rule .sv-rule-del {
+	opacity: 0;
+	transition: opacity 0.1s;
+}
+
+.sv-rule:hover .sv-rule-del,
+.sv-rule .sv-rule-del:focus-visible {
+	opacity: 1;
+}
+
+/* "+ Add a rule" and other dashed actions */
+.sv-add {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	margin-top: 6px;
+	padding: 7px 9px;
+	border: 1px dashed var(--sv-border);
+	border-radius: 4px;
+	background: transparent;
+	color: var(--sv-text-2);
+	font-family: inherit;
+	font-size: 12px;
+	text-align: left;
+	cursor: pointer;
+}
+
+.sv-add:hover {
+	color: var(--sv-text);
+	border-color: var(--sv-text-3);
+	background: var(--sv-hover);
+}
+
+.sv-add.disabled {
+	opacity: 0.55;
+	cursor: default;
+	background: transparent;
+}
+
+.sv-add-box {
+	margin-top: 6px;
+	padding: 8px;
+	border: 1px solid var(--sv-border);
+	border-radius: 4px;
+	background: var(--sv-bg);
+}
+
+.sv-add-box.sv-doc-edge {
+	padding-left: 6px;
+}
+
+.sv-add-box textarea.form-control {
+	border-radius: 3px;
+}
+
+.sv-check {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	margin-top: 8px;
+	color: var(--sv-text);
+	font-size: 12px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.sv-check input[type='checkbox'] {
+	flex: 0 0 auto;
+	width: 14px;
+	cursor: pointer;
+}
+
+.sv-add-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+	margin-top: 8px;
+}
+
+.scrivar-tabpanel .btn-text-default {
+	height: 24px;
+	padding: 0 12px;
+	border-radius: 3px;
+	font-family: inherit;
+	font-size: 12px;
+	width: auto;
+}
+
+.scrivar-tabpanel .btn-text-default.sv-primary {
+	background-color: var(--sv-accent) !important;
+	border-color: var(--sv-accent) !important;
+	color: #fff !important;
+}
+
+.scrivar-tabpanel .btn-text-default.sv-primary:hover {
+	filter: brightness(1.08);
+}
+
+/* Notices, status, empty states */
+.sv-notice {
+	display: flex;
+	align-items: flex-start;
+	gap: 7px;
+	margin-top: 14px;
+	padding: 8px 10px;
+	border-radius: 4px;
+	background: var(--sv-bg-2);
+	color: var(--sv-text-2);
+	font-size: 11.5px;
+}
+
+.sv-notice .sv-svg {
+	margin-top: 1px;
+	width: 13px;
+	height: 13px;
+}
+
+.sv-notice-warn {
+	color: var(--sv-text);
+	box-shadow: inset 3px 0 0 var(--sv-amber);
+}
+
+.sv-status {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 10px;
+	margin-top: 10px;
+	color: var(--sv-text-2);
+	font-size: 11.5px;
+}
+
+.sv-status-ok {
+	color: var(--sv-ok);
+}
+
+.sv-status-err {
+	color: var(--sv-err);
+}
+
+.sv-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0;
+	border: none;
+	background: none;
+	color: var(--sv-accent);
+	font-family: inherit;
+	font-size: 11.5px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.theme-type-dark .sv-link {
+	color: var(--sv-text);
+}
+
+.sv-link:hover {
+	text-decoration: underline;
+}
+
+.sv-link.disabled {
+	opacity: 0.5;
+	cursor: default;
+	text-decoration: none;
+}
+
+.sv-empty {
+	color: var(--sv-text-3);
+	font-size: 11.5px;
+	padding: 2px 2px 0;
+}
+
+.sv-empty-block {
+	margin-top: 12px;
+	padding: 14px 12px;
+	border: 1px dashed var(--sv-border);
+	border-radius: 4px;
+	color: var(--sv-text-2);
+	text-align: center;
+	line-height: 1.5;
+}
+
+.sv-loading,
+.sv-busy {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 2px;
+	color: var(--sv-text-2);
+}
+
+.sv-busy {
+	padding: 6px 2px;
+	font-size: 11.5px;
+}
+
+.sv-usedoc-busy {
+	margin-top: 10px;
+}
+
+.sv-spinner {
+	width: 12px;
+	height: 12px;
+	border: 2px solid var(--sv-border);
+	border-top-color: var(--sv-accent);
+	border-radius: 50%;
+	animation: sv-spin 0.8s linear infinite;
+}
+
+@keyframes sv-spin {
+	to { transform: rotate(360deg); }
+}
+
+.sv-error-box {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	margin-top: 12px;
+	padding: 10px 12px;
+	border: 1px solid var(--sv-border);
+	border-radius: 4px;
+	color: var(--sv-text);
+}
+
+/* Subscribe banner: the chat's SCRIVAR-SUBSCRIBE banner */
+.sv-subscribe {
+	margin: 0 0 10px;
+	padding: 10px 12px;
+	border: 1px solid var(--sv-border);
+	border-radius: 8px;
+	text-align: center;
+}
+
+.sv-subscribe-msg {
+	font-size: 13px;
+	margin-bottom: 8px;
+}
+
+.scrivar-tabpanel .btn-text-default.sv-subscribe-btn {
+	height: 26px;
+}
+
+/* ── References ────────────────────────────────────────────────────────────── */
+
+.sv-meter {
+	padding: 10px 12px;
+	border: 1px solid var(--sv-border);
+	border-radius: 6px;
+	background: var(--sv-bg);
+}
+
+.sv-meter-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.sv-meter-title {
+	font-weight: 600;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sv-meter-num {
+	flex-shrink: 0;
+	color: var(--sv-text-2);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+.sv-meter-num b {
+	color: var(--sv-text);
+	font-weight: 600;
+}
+
+.sv-meter-bar {
+	height: 6px;
+	margin: 8px 0 6px;
+	border-radius: 3px;
+	background: var(--sv-bg-2);
+	overflow: hidden;
+}
+
+.sv-meter-fill {
+	height: 100%;
+	border-radius: 3px;
+	background: var(--sv-accent);
+	transition: width 0.2s ease;
+}
+
+.sv-meter-fill.sv-meter-near {
+	background: var(--sv-amber);
+}
+
+.sv-meter-fill.sv-meter-over {
+	background: var(--sv-err);
+}
+
+.sv-meter-foot {
+	color: var(--sv-text-3);
+	font-size: 11px;
+}
+
+.sv-refs {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--sv-border);
+	border-radius: 4px;
+	background: var(--sv-bg);
+	overflow: hidden;
+}
+
+.sv-ref {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 7px 10px;
+}
+
+.sv-ref + .sv-ref {
+	border-top: 1px solid var(--sv-divider);
+}
+
+.sv-ref-main {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.sv-ref-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: 600;
+}
+
+.sv-ref-meta {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 1px;
+	color: var(--sv-text-3);
+	font-size: 11px;
+}
+
+.sv-ref.blocked .sv-ref-title {
+	color: var(--sv-text-2);
+}
+
+.sv-ref-missing .sv-ref-title {
+	color: var(--sv-text-2);
+	font-weight: 400;
+	font-style: italic;
+}
+
+.sv-ref-missing .sv-ref-meta {
+	color: var(--sv-err);
+}
+
+.sv-badge {
+	display: inline-block;
+	height: 15px;
+	padding: 0 5px;
+	border-radius: 3px;
+	background: rgba(232, 163, 23, 0.18);
+	color: #8A5A00;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 15px;
+	cursor: help;
+}
+
+.theme-type-dark .sv-badge {
+	color: var(--sv-amber);
+}
+
+/* on/off switch */
+.sv-switch {
+	flex-shrink: 0;
+	position: relative;
+	width: 30px;
+	height: 17px;
+	padding: 0;
+	border: none;
+	border-radius: 9px;
+	background: var(--sv-border);
+	cursor: pointer;
+	transition: background 0.15s;
+}
+
+.sv-switch.on {
+	background: var(--sv-accent);
+}
+
+.sv-switch-knob {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 13px;
+	height: 13px;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+	transition: transform 0.15s;
+}
+
+.sv-switch.on .sv-switch-knob {
+	transform: translateX(13px);
+}
+
+.sv-switch.disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.sv-switch:focus-visible {
+	outline: 2px solid var(--sv-accent);
+	outline-offset: 2px;
+}
+
+.theme-type-dark .sv-switch:not(.on) {
+	background: #5a5a5a;
+}
+
+.sv-usedoc-choose {
+	margin-top: 14px;
+	padding: 10px;
+	border: 1px solid var(--sv-border);
+	border-radius: 4px;
+	background: var(--sv-bg);
+}
+
+.sv-usedoc-q {
+	font-weight: 600;
+}
+
+.sv-section + .sv-add,
+.sv-section + .sv-usedoc-choose {
+	margin-top: 14px;
+}
+
+.sv-ref-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-top: 14px;
+	padding-top: 10px;
+	border-top: 1px solid var(--sv-divider);
+	color: var(--sv-text-3);
+	font-size: 11px;
+}

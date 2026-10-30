@@ -482,7 +482,9 @@ function fetchExternal(url, options, isStreaming) {
 				onOpenSettingsModal();
 			return null;
 		}
-		return new AI.Request(model);
+		let request = new AI.Request(model);
+		request.actionType = action; // SCRIVAR-RULES: getContext() falls back on it
+		return request;
 	};
 
 	AI.Request.prototype.setErrorHandler = function(callback) {
@@ -506,6 +508,11 @@ function fetchExternal(url, options, isStreaming) {
 					if (true) {
 						// timer for exit from long action
 						setTimeout(async function(){
+							// SCRIVAR-RULES: not subscribed -> the chat banner's Subscribe
+							// action (launcher Cloud & AI window), not a warning toast.
+							// block = a right-click action; otherwise a background check.
+							if (window.AI && AI.Scrivar && await AI.Scrivar.routeErrorToSubscribe(err, { interactive : !!block }))
+								return;
 							await Asc.Library.SendError(err.message, 0);
 						}, 100);						
 					} else {
@@ -580,6 +587,15 @@ function fetchExternal(url, options, isStreaming) {
 
 		let headers = AI._getHeaders(provider);
 
+		// SCRIVAR-RULES: the Scrivar AI request context (action, document rules,
+		// references, tool contract). Taken synchronously before any await, so a
+		// tag set by AI.Scrivar.setAction() right before the call is this request's.
+		let scrivarCtx = (window.AI && AI.Scrivar) ? AI.Scrivar.getContext(this.actionType) : null;
+		if (scrivarCtx && !AI.Scrivar.isScrivarProvider(provider))
+			scrivarCtx = null;
+		if (scrivarCtx)
+			await AI.Scrivar.attachDocLayer(scrivarCtx);
+
 		let isMessages = Array.isArray(content);
 
 		if (isUseCompletionsInsteadChat && isMessages) {
@@ -650,6 +666,7 @@ function fetchExternal(url, options, isStreaming) {
 					requestBody.messages = [{role:"user",content:messages[0]}];
 
 				objRequest.body = provider.getChatCompletions(requestBody, this.model);
+				if (scrivarCtx) objRequest.body.scrivar = scrivarCtx; // SCRIVAR-RULES
 
 				if (isStreaming && options.streamingBody !== false)
 					objRequest.body.stream = true;
@@ -711,6 +728,10 @@ function fetchExternal(url, options, isStreaming) {
 							errorObj = chunks[0].data.error;
 					} catch (err) {					
 					}
+					// SCRIVAR-RULES: a late error frame (stream failed after some text)
+					// can share a batch with content chunks — look past chunks[0].
+					if (!errorObj && window.AI && AI.Scrivar)
+						errorObj = AI.Scrivar.findStreamError(chunks);
 
 					if (errorObj) {
 						throw {
@@ -773,6 +794,7 @@ function fetchExternal(url, options, isStreaming) {
 				let message = getHeader(i + 1, len) + messages[i] + getFooter(i + 1, len);
 				if (!isUseCompletionsInsteadChat) {
 					objRequest.body = provider.getChatCompletions({ messages : [{role:"user",content:message}] }, model);
+					if (scrivarCtx) objRequest.body.scrivar = scrivarCtx; // SCRIVAR-RULES
 				} else {
 					objRequest.body = provider.getCompletions( { text : message }, model);
 				}
@@ -809,6 +831,15 @@ function fetchExternal(url, options, isStreaming) {
 
 		let headers = AI._getHeaders(provider);
 
+		// SCRIVAR-RULES: the Scrivar AI request context (action, document rules,
+		// references, tool contract). Taken synchronously before any await, so a
+		// tag set by AI.Scrivar.setAction() right before the call is this request's.
+		let scrivarCtx = (window.AI && AI.Scrivar) ? AI.Scrivar.getContext(this.actionType) : null;
+		if (scrivarCtx && !AI.Scrivar.isScrivarProvider(provider))
+			scrivarCtx = null;
+		if (scrivarCtx)
+			await AI.Scrivar.attachDocLayer(scrivarCtx);
+
 		let objRequest = {
 			headers : headers,
 			method : "POST"
@@ -819,6 +850,7 @@ function fetchExternal(url, options, isStreaming) {
 
 		objRequest.url = AI._getEndpointUrl(provider, AI.Endpoints.Types.v1.Chat_Completions, this.model, options);
 		objRequest.body = provider.getChatCompletions({ messages : content.messages }, this.model);
+		if (scrivarCtx) objRequest.body.scrivar = scrivarCtx; // SCRIVAR-RULES
 
 		if (content.tools) {
 			provider.addTools(objRequest.body, content.tools);
@@ -908,6 +940,10 @@ function fetchExternal(url, options, isStreaming) {
 						errorObj = chunks[0].data.error;
 				} catch (err) {
 				}
+				// SCRIVAR-RULES: a late error frame (stream failed after some text)
+				// can share a batch with content chunks — look past chunks[0].
+				if (!errorObj && window.AI && AI.Scrivar)
+					errorObj = AI.Scrivar.findStreamError(chunks);
 
 				if (errorObj) {
 					throw {

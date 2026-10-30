@@ -73,6 +73,7 @@ Object.assign(CustomAnnotator.prototype, {
             this._lastUsedPrompt = argPrompt;    
         }
 
+        AI.Scrivar && AI.Scrivar.setAction('assistant'); // SCRIVAR-RULES
         let response = await this.chatRequest(argPrompt);
 
         if (!response || response === "[]") {

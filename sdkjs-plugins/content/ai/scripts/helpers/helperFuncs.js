@@ -121,6 +121,9 @@ EditorHelperImpl.prototype._getEditorContext = function() {
 	return { type: editorType, name: editorType, apiName: "API", macroExample: "" };
 };
 
+// SCRIVAR-RULES: the AI tool prompts name the editor "Scrivar Office". The
+// getSystemPrompt() contract is sent as context.toolContract for Scrivar AI
+// (register.js / AI.Scrivar.adoptToolContract).
 EditorHelperImpl.prototype.getToolsSystemPrompt = function() {
 	if (this.funcs.length === 0)
 		return "";
@@ -128,14 +131,14 @@ EditorHelperImpl.prototype.getToolsSystemPrompt = function() {
 	let ctx = this._getEditorContext();
 
 	let prompt = "\
-You are an AI assistant integrated into the OnlyOffice " + ctx.name + " editor.\n\
+You are an AI assistant integrated into the Scrivar Office " + ctx.name + " editor.\n\
 You have access to tools that can interact with the " + ctx.name + " content.\n\
 \n\
 IMPORTANT RULES FOR DOCUMENT OPERATIONS:\n\
 \n\
 1. When the user asks about the " + ctx.name + " content or wants to perform an action on it, you MUST use the available tools.\n\
 2. First, check if there is a specialized tool that matches the request (e.g., textStyle, addChart, rewriteText, etc.).\n\
-3. If no specialized tool fits, use the \"writeMacro\" tool. It can execute any JavaScript code using the OnlyOffice " + ctx.apiName + ".\n\
+3. If no specialized tool fits, use the \"writeMacro\" tool. It can execute any JavaScript code using the Scrivar Office " + ctx.apiName + ".\n\
 4. The \"writeMacro\" tool can also READ/GET data from the " + ctx.name + ". Make the last expression in the code be the value you want to retrieve — it will be returned as the tool result. Example: " + ctx.macroExample + "\n\
 5. If a \"writeMacro\" call returns an error, analyze the error message, fix the code, and retry. You may retry up to 5 times for a single macro request before giving up and informing the user.\n\
 6. If the user’s question is NOT about the " + ctx.name + " content (e.g., general knowledge, coding help, conversation), respond normally without calling any tools.\n\
@@ -153,12 +156,12 @@ EditorHelperImpl.prototype.getSystemPrompt = function() {
 	let ctx = this._getEditorContext();
 
 	let systemPrompt = "\
-You are an AI assistant integrated into the OnlyOffice " + ctx.name + " editor with function-calling capabilities.\n\
+You are an AI assistant integrated into the Scrivar Office " + ctx.name + " editor with function-calling capabilities.\n\
 \n\
 BEHAVIOR RULES:\n\
 - When the user asks about the " + ctx.name + " content or wants to perform an action on it, you MUST call an appropriate function.\n\
 - First, check if there is a specialized function that matches the request.\n\
-- If no specialized function fits, use the \"writeMacro\" function. It can execute any JavaScript code using the OnlyOffice " + ctx.apiName + ".\n\
+- If no specialized function fits, use the \"writeMacro\" function. It can execute any JavaScript code using the Scrivar Office " + ctx.apiName + ".\n\
 - The \"writeMacro\" function can also READ/GET data from the " + ctx.name + ". Make the last expression in the code be the value you want to retrieve — it will be returned as the function result. Example: " + ctx.macroExample + "\n\
 - If a \"writeMacro\" call returns an error, analyze the error message, fix the code, and retry. You may retry up to 5 times for a single macro request before giving up.\n\
 - If the user’s question is NOT about the " + ctx.name + " content (e.g., general knowledge, coding help, conversation), respond normally in text without calling any function.\n\

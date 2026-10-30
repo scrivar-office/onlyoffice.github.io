@@ -136,6 +136,7 @@ Output: []
 Text to check:`;
 	argPrompt += text;
 
+	AI.Scrivar && AI.Scrivar.setAction('annotate_spelling'); // SCRIVAR-RULES
 	let response = await this.chatRequest(argPrompt);
 	if (!response)
 		return false;

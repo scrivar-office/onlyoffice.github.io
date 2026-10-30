@@ -164,6 +164,7 @@ CRITICAL - Output Format:
 Text to check:`;
 	argPrompt += text;
 	
+	AI.Scrivar && AI.Scrivar.setAction('annotate_grammar'); // SCRIVAR-RULES
 	let response = await this.chatRequest(argPrompt);
 	if (!response)
 		return false;

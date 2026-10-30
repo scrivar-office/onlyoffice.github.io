@@ -678,8 +678,9 @@ Here is the text that needs revision: \"${content}\"`;
 			return prompt;
 		},
 		getTextShorterPrompt(content) {
-			let prompt = "Make the following text simpler. Return only the resulting text.";
-			prompt += "Text: \"\"\"\n";
+			// SCRIVAR-RULES: "shorter" (upstream asked for "simpler").
+			let prompt = "Make the following text shorter while keeping its meaning. Return only the resulting text.";
+			prompt += "\nText: \"\"\"\n";
 			prompt += content;
 			prompt += "\n\"\"\"";
 			return prompt;
@@ -692,12 +693,17 @@ Here is the text that needs revision: \"${content}\"`;
 			return prompt;
 		},
 		getTextKeywordsPrompt(content) {
-			let prompt = `Get Key words from this text: "${content}"`;
+			// SCRIVAR-RULES: one plain line (upstream's answer came back as markdown lists).
+			let prompt = "List the key words and phrases from this text as a single comma-separated line of plain text, with no heading, numbering or formatting.";
+			prompt += "\nText: \"\"\"\n";
+			prompt += content;
+			prompt += "\n\"\"\"";
 			return prompt;
 		},
 		getExplainAsLinkPrompt(content) {
-			let prompt = "Give a link to the explanation of the following text. Return only the resulting link.";
-			prompt += "Text: \"\"\"\n";
+			// SCRIVAR-RULES: no invented URLs; register.js treats NO_LINK as "no link found".
+			let prompt = "Give one link to a well-known reference page (such as Wikipedia) that explains the following text. Return only the URL. If you are not certain such a page exists, return exactly: NO_LINK";
+			prompt += "\nText: \"\"\"\n";
 			prompt += content;
 			prompt += "\n\"\"\"";
 			return prompt;

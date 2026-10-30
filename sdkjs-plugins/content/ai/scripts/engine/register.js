@@ -178,7 +178,12 @@ async function registerButtons(window, undefined)
 				if ("" === AgentState.systemToolsPrompt)
 					AgentState.systemToolsPrompt = window.EditorHelper.getSystemPrompt();
 
-				if (requestData.messages.length === 0 || requestData.messages[0].role !== "system") {
+				// SCRIVAR-RULES: for Scrivar AI the function-calling contract rides as
+				// context.toolContract (the server puts it in the one system prompt),
+				// so it is not sent a second time as a system message.
+				if (AI.Scrivar && AI.Scrivar.adoptToolContract(provider, AgentState.systemToolsPrompt)) {
+					// sent as context.toolContract
+				} else if (requestData.messages.length === 0 || requestData.messages[0].role !== "system") {
 					requestData.messages.unshift({
 						role: 'system',
 						content: AgentState.systemToolsPrompt
@@ -202,6 +207,7 @@ async function registerButtons(window, undefined)
 				}
 
 				let isStreamToChat = false;
+				AI.Scrivar && AI.Scrivar.setAction('chat'); // SCRIVAR-RULES
 				let fullResponse = await requestEngine.chatRequestAgent(requestData, false, async function(chunk) {
 					if (!isStreamToChat) {
 						isStreamToChat = true;
@@ -462,6 +468,7 @@ async function registerButtons(window, undefined)
 
 			let content = await Asc.Library.GetSelectedText();
 			let prompt = Asc.Prompts.getSummarizationPrompt(content);
+			AI.Scrivar && AI.Scrivar.setAction('summarize'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
 
@@ -490,6 +497,7 @@ async function registerButtons(window, undefined)
 
 			let content = await Asc.Library.GetSelectedText();
 			let prompt = Asc.Prompts.getTextRewritePrompt(content);
+			AI.Scrivar && AI.Scrivar.setAction('rewrite'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
 
@@ -508,6 +516,7 @@ async function registerButtons(window, undefined)
 
 			let content = await Asc.Library.GetSelectedText();
 			let prompt = Asc.Prompts.getTextLongerPrompt(content);
+			AI.Scrivar && AI.Scrivar.setAction('longer'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
 
@@ -526,6 +535,7 @@ async function registerButtons(window, undefined)
 
 			let content = await Asc.Library.GetSelectedText();
 			let prompt = Asc.Prompts.getTextShorterPrompt(content);
+			AI.Scrivar && AI.Scrivar.setAction('shorter'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
 
@@ -551,6 +561,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let prompt = Asc.Prompts.getExplainPrompt(content);
+			AI.Scrivar && AI.Scrivar.setAction('explain'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
 
@@ -570,8 +581,15 @@ async function registerButtons(window, undefined)
 
 			let content = await Asc.Library.GetSelectedText();
 			let prompt = Asc.Prompts.getExplainAsLinkPrompt(content);
+			AI.Scrivar && AI.Scrivar.setAction('explain_link'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
+
+			// SCRIVAR-RULES: the prompt answers NO_LINK when no reliable page exists.
+			if (result.indexOf('NO_LINK') !== -1 || result.indexOf('http') === -1) {
+				await Asc.Library.SendError(Asc.plugin.tr('No reference link was found for this text.'), 0);
+				return;
+			}
 
 			result = result.replace(/\n\n/g, '\n');
 			await Asc.Library.InsertAsHyperlink(result);
@@ -589,6 +607,7 @@ async function registerButtons(window, undefined)
 
 			let content = await Asc.Library.GetSelectedText();
 			let prompt = Asc.Prompts.getFixAndSpellPrompt(content);
+			AI.Scrivar && AI.Scrivar.setAction('fix'); // SCRIVAR-RULES
 
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
@@ -610,6 +629,7 @@ async function registerButtons(window, undefined)
 
 			let content = await Asc.Library.GetSelectedText();
 			let prompt = Asc.Prompts.getTextKeywordsPrompt(content);
+			AI.Scrivar && AI.Scrivar.setAction('keywords'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
 
@@ -642,6 +662,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let prompt = Asc.Prompts.getTranslatePrompt(content, lang);
+			AI.Scrivar && AI.Scrivar.setAction('translate'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
 
@@ -908,6 +929,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let prompt = Asc.Prompts.getTranslatePrompt(content, lang);
+			AI.Scrivar && AI.Scrivar.setAction('translate'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
 			if (!result) return;
 

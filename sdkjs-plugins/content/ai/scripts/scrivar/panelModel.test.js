@@ -50,11 +50,27 @@ test('toggleState: a doc that would exceed 200,000 chars is disabled (budget); s
 		{ id: 7, kind: 'facts', charCount: 50000 }).disabled, false);
 });
 
-test('toggleState: at most 10 selected library docs (missing ids do not count)', () => {
+test('toggleState: at most 10 selected docs in the file', () => {
 	const many = Array.from({ length: 11 }, (_, i) => ({ id: i + 1, kind: 'facts', charCount: 10 }));
 	const ten = many.slice(0, 10).map((r) => r.id);
 	assert.deepEqual(M.toggleState(many, ten, many[10]), { on: false, disabled: true, reason: 'count' });
-	assert.equal(M.toggleState(many, ten.slice(0, 9).concat([999]), many[10]).disabled, false);
+	assert.equal(M.toggleState(many, ten.slice(0, 9), many[10]).disabled, false);
+});
+
+test('toggleState: ids not in this library ("Not in your library") count against the 10-id cap', () => {
+	// The file already carries 9 ids from another user's library plus 1 of ours:
+	// docProps.sanitizeLayer keeps only 10 ids, so an 11th switch would be
+	// trimmed by the background save and snap back off. It must be disabled.
+	const mine = [{ id: 1, kind: 'facts', charCount: 10 }, { id: 2, kind: 'facts', charCount: 10 }];
+	const stored = [901, 902, 903, 904, 905, 906, 907, 908, 909, 1];
+	assert.deepEqual(M.toggleState(mine, stored, mine[1]), { on: false, disabled: true, reason: 'count' });
+	// 9 stored (8 foreign + 1 mine) still leaves room for one more.
+	assert.deepEqual(M.toggleState(mine, stored.slice(1), mine[1]), { on: false, disabled: false, reason: null });
+	// Duplicates and invalid ids are dropped by sanitizeLayer, so they don't count.
+	const dupes = [901, 901, 902, 903, 904, 905, 906, 907, 908, 'x', 0, -3, 1.5];
+	assert.equal(M.toggleState(mine, dupes, mine[1]).disabled, false);
+	// Turning a selected one off is always allowed, even over the cap.
+	assert.deepEqual(M.toggleState(mine, stored, mine[0]), { on: true, disabled: false, reason: null });
 });
 
 test('withReference / missingIds / groupLibrary', () => {

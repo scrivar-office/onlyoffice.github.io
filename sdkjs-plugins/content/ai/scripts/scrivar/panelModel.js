@@ -223,8 +223,17 @@
 		if (on)
 			return { on: true, disabled: false, reason: null };
 		var budget = (limits && limits.requestBudget) || REFS.requestBudget;
-		var known = byId(library);
-		var count = ids.filter(function(id) { return known[id]; }).length;
+		// Count EVERY id the file stores (incl. "Not in your library" ones from
+		// another account): docProps.sanitizeLayer keeps only the first 10
+		// valid unique ids, so an 11th would be trimmed on save and snap off.
+		var seen = {};
+		var count = 0;
+		ids.forEach(function(id) {
+			if (typeof id === 'number' && Number.isInteger(id) && id > 0 && !seen[id]) {
+				seen[id] = true;
+				count++;
+			}
+		});
 		if (count >= REFS.maxSelected)
 			return { on: false, disabled: true, reason: 'count' };
 		if (selectedChars(library, ids, limits) + refChars(ref, limits) > budget)

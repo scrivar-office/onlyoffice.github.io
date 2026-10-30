@@ -196,6 +196,11 @@ async function registerButtons(window, undefined)
 			while (iteration < AgentState.MAX_LOOP_ITERATIONS && !AgentState.isStopped) {
 				iteration++;
 
+				// SCRIVAR-RULES: read this document's rules BEFORE the Block (the
+				// editor skips plugin commands during a Block long action).
+				if (AI.Scrivar && iteration === 1)
+					await AI.Scrivar.prefetchDocLayer();
+
 				await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
 
 				let isSendedEndLongAction = false;
@@ -467,6 +472,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let content = await Asc.Library.GetSelectedText();
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getSummarizationPrompt(content);
 			AI.Scrivar && AI.Scrivar.setAction('summarize'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
@@ -496,6 +502,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let content = await Asc.Library.GetSelectedText();
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getTextRewritePrompt(content);
 			AI.Scrivar && AI.Scrivar.setAction('rewrite'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
@@ -515,6 +522,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let content = await Asc.Library.GetSelectedText();
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getTextLongerPrompt(content);
 			AI.Scrivar && AI.Scrivar.setAction('longer'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
@@ -534,6 +542,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let content = await Asc.Library.GetSelectedText();
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getTextShorterPrompt(content);
 			AI.Scrivar && AI.Scrivar.setAction('shorter'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
@@ -560,6 +569,7 @@ async function registerButtons(window, undefined)
 			if (!content)
 				return;
 
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getExplainPrompt(content);
 			AI.Scrivar && AI.Scrivar.setAction('explain'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
@@ -580,6 +590,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let content = await Asc.Library.GetSelectedText();
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getExplainAsLinkPrompt(content);
 			AI.Scrivar && AI.Scrivar.setAction('explain_link'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
@@ -606,6 +617,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let content = await Asc.Library.GetSelectedText();
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getFixAndSpellPrompt(content);
 			AI.Scrivar && AI.Scrivar.setAction('fix'); // SCRIVAR-RULES
 
@@ -628,6 +640,7 @@ async function registerButtons(window, undefined)
 				return;
 
 			let content = await Asc.Library.GetSelectedText();
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getTextKeywordsPrompt(content);
 			AI.Scrivar && AI.Scrivar.setAction('keywords'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
@@ -661,6 +674,7 @@ async function registerButtons(window, undefined)
 			if (!content)
 				return;
 
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getTranslatePrompt(content, lang);
 			AI.Scrivar && AI.Scrivar.setAction('translate'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);
@@ -928,6 +942,7 @@ async function registerButtons(window, undefined)
 			if (!content)
 				return;
 
+			if (AI.Scrivar) await AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES
 			let prompt = Asc.Prompts.getTranslatePrompt(content, lang);
 			AI.Scrivar && AI.Scrivar.setAction('translate'); // SCRIVAR-RULES
 			let result = await requestEngine.chatRequest(prompt);

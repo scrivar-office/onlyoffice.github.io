@@ -45,6 +45,11 @@
 
 	Editor.callCommand = async function(func)
 	{
+		// SCRIVAR-RULES: one command at a time through the queue shared with the
+		// Scrivar document-rules reads (the plugin API has ONE callCommand
+		// callback slot; overlapping commands swap or lose their results).
+		if (window.ScrivarDocProps && window.ScrivarDocProps.runCommand)
+			return await window.ScrivarDocProps.runCommand(func);
 		return new Promise(resolve => (function(){
 			Asc.plugin.callCommand(func, false, true, function(returnValue){
 				resolve(returnValue);

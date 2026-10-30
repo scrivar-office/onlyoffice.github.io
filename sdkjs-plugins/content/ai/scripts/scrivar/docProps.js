@@ -206,25 +206,86 @@
 		return (root.Asc && root.Asc.plugin && root.Asc.plugin.info) || {};
 	}
 
-	function callCommandJson(func, timeoutMs) {
-		return new Promise(function(resolve) {
-			var done = false;
-			var timer = setTimeout(function() {
-				if (!done) { done = true; resolve(null); }
-			}, timeoutMs);
-			try {
-				root.Asc.plugin.callCommand(func, false, true, function(ret) {
-					if (done) return;
-					done = true;
-					clearTimeout(timer);
-					var parsed = null;
-					try { parsed = typeof ret === 'string' ? JSON.parse(ret) : ret; } catch (e) { parsed = null; }
-					resolve(parsed);
-				});
-			} catch (e) {
-				if (!done) { done = true; clearTimeout(timer); resolve(null); }
+	// ---- one command at a time --------------------------------------------------
+	// The plugin API has ONE callback slot for callCommand
+	// (Asc.plugin.onCallCommandCallback, overwritten by every call and consumed
+	// by the first reply), so two overlapping commands hand one caller the
+	// other's result and leave the other waiting forever. Every command the AI
+	// plugin issues (upstream's Asc.Editor.callCommand is routed here by
+	// patch-ai-rules.sh) goes through this queue: the next command is sent only
+	// after the previous one's reply arrived (or after HOLD_MS, so a command the
+	// editor never answers cannot wedge the plugin).
+	// Asc.scope is serialised by callCommand at SEND time, so it is
+	// snapshotted at ENQUEUE time and put back in place just for the send.
+	var HOLD_MS = 30000;
+	var commandTail = Promise.resolve();
+
+	function snapshotScope() {
+		try {
+			return JSON.parse(JSON.stringify((root.Asc && root.Asc.scope) || {}));
+		} catch (e) {
+			return null;
+		}
+	}
+
+	/**
+	 * Run `func` in the editor via Asc.plugin.callCommand, serialised.
+	 * Resolves with the command's return value. With `timeoutMs`, resolves
+	 * undefined if no reply arrived in time (the queue still waits for the
+	 * reply, so a late reply can never reach the next command's caller).
+	 */
+	function runCommand(func, timeoutMs, isCalc) {
+		var scope = snapshotScope();
+		return new Promise(function(resolveCaller) {
+			var callerDone = false;
+			function answer(v) {
+				if (callerDone) return;
+				callerDone = true;
+				resolveCaller(v);
 			}
+			commandTail = commandTail.then(function() {
+				return new Promise(function(release) {
+					var released = false;
+					function done() {
+						if (released) return;
+						released = true;
+						clearTimeout(hold);
+						release();
+					}
+					var hold = setTimeout(done, HOLD_MS);
+					if (timeoutMs)
+						setTimeout(function() { answer(undefined); }, timeoutMs);
+					var saved = root.Asc.scope;
+					try {
+						if (scope) root.Asc.scope = scope;
+						root.Asc.plugin.callCommand(func, false, isCalc !== false, function(ret) {
+							done();
+							answer(ret);
+						});
+					} catch (e) {
+						done();
+						answer(undefined);
+					} finally {
+						root.Asc.scope = saved;
+					}
+				});
+			});
 		});
+	}
+
+	function parseReply(ret) {
+		if (typeof ret !== 'string')
+			return null;
+		try {
+			var parsed = JSON.parse(ret);
+			return parsed && typeof parsed === 'object' ? parsed : null;
+		} catch (e) {
+			return null;
+		}
+	}
+
+	async function callCommandJson(func, timeoutMs) {
+		return parseReply(await runCommand(func, timeoutMs));
 	}
 
 	/**
@@ -306,17 +367,25 @@
 		root.localStorage.setItem(key, encodeChunks(obj).join(''));
 	}
 
-	/** The open document's raw stored layer object, or null. Never throws. */
+	/**
+	 * Read the open document's raw stored layer. Never throws.
+	 *   { ok: true,  layer: object|null }  — a definite answer (null = no rules)
+	 *   { ok: false }                      — no answer (timeout, or the editor
+	 *     skipped the command during a long "Block" action): callers must keep
+	 *     what they had, not treat it as "no rules".
+	 */
 	async function read() {
 		var info = pluginInfo();
 		if (storageKindFor(info) === 'local')
-			return readLocal(info);
+			return { ok: true, layer: readLocal(info) };
 		var res = await readViaApi();
-		if (res && res.unsupported)
-			return readLocal(info);
-		if (!res || !Array.isArray(res.values) || !(res.count > 0))
-			return null;
-		return decodeChunks(res.values);
+		if (!res)
+			return { ok: false };
+		if (res.unsupported)
+			return { ok: true, layer: readLocal(info) };
+		if (!Array.isArray(res.values) || !(res.count > 0))
+			return { ok: true, layer: null };
+		return { ok: true, layer: decodeChunks(res.values) };
 	}
 
 	/** Store `obj` (null clears). Throws when the editor refused the write. */
@@ -346,6 +415,7 @@
 		sanitizeLayer: sanitizeLayer,
 		storageKindFor: storageKindFor,
 		localKeyFor: localKeyFor,
+		runCommand: runCommand,
 		readViaApi: readViaApi,
 		writeViaApi: writeViaApi,
 		read: read,

@@ -14,11 +14,15 @@
  * API URL and NO credentials: everything goes to the loopback proxy only.
  *
  * Flow:
- *   register.js / annotators call AI.Scrivar.setAction('<id>') right before a
- *   request; engine.js asks AI.Scrivar.getContext(this.actionType) as the
- *   request is built (consuming the tag; untagged requests map from their
- *   ActionType), then awaits AI.Scrivar.attachDocLayer(ctx) to fill in the
- *   document's own rules (stored in the file, see docProps.js).
+ *   register.js / annotators call AI.Scrivar.setAction('<id>') on the line
+ *   right before a request; AI.Request._wrapRequest takes that tag
+ *   synchronously (takeAction) and keeps it on the request instance;
+ *   engine.js then builds AI.Scrivar.getContext(this.actionType, tag)
+ *   (untagged requests map from their ActionType) and attachDocLayer(ctx)
+ *   fills in the document's own rules from the cache.
+ *   The document's rules (stored in the file, see docProps.js) are read only
+ *   at safe points: plugin init, before a user action's Block starts
+ *   (prefetchDocLayer), and they are updated directly by saveDocLayer.
  *
  * Load order: after docProps.js. Pure helpers are exported for node tests.
  */
@@ -28,7 +32,6 @@
 	var PROXY_ORIGIN = 'http://127.0.0.1:41317';
 	var MANAGE_URL = 'scrivar-office://manage';
 	var MAX_TOOL_CONTRACT = 60000;
-	var DOC_LAYER_MAX_AGE_MS = 3000;
 	var DOC_LAYER_WAIT_MS = 1500;
 	var SUBSCRIBE_DEBOUNCE_MS = 10000;
 	var STATUS_CACHE_MS = 10000;
@@ -124,28 +127,53 @@
 
 	// ---- runtime state (plugin page) -----------------------------------------
 
-	var pendingAction = null;
+	var pendingAction = null;     // { id } — lives for the current synchronous turn only
 	var toolContract = null;
 	var docLayer = null;          // sanitized layer of the open document
-	var docLayerLoadedAt = 0;
+	var docLayerLoadedAt = 0;     // last DEFINITE read (a failed read leaves it alone)
 	var docLayerInflight = null;
 	var lastSubscribeAt = 0;
 
-	/** Tag the NEXT request with a Scrivar action id. Also refreshes the document rules in the background. */
+	var defer = (typeof queueMicrotask === 'function')
+		? queueMicrotask
+		: function(fn) { Promise.resolve().then(fn); };
+
+	/**
+	 * Tag the request made NEXT, in the same synchronous turn: the call site
+	 * puts this on the line right before requestEngine.chatRequest(...), and
+	 * AI.Request._wrapRequest takes the tag synchronously as its first step.
+	 * A tag nobody took (the request was never made) expires at the end of the
+	 * turn, so it can never land on an unrelated later request. Does NOT read
+	 * the document (reads happen only at safe points, see prefetchDocLayer).
+	 */
 	function setAction(id) {
 		if (!isKnownAction(id)) {
 			if (root.console) console.warn('AI.Scrivar.setAction: unknown action ' + id);
 			pendingAction = null;
 			return;
 		}
-		pendingAction = id;
-		ensureDocLayer().catch(function() {});
+		var tag = { id: id };
+		pendingAction = tag;
+		defer(function() {
+			if (pendingAction === tag)
+				pendingAction = null;
+		});
 	}
 
-	/** Build the `scrivar` field for a request; consumes the pending tag. Synchronous. */
-	function getContext(actionType) {
-		var explicit = pendingAction;
+	/** Take (and clear) the pending tag. engine.js stores it on the request instance. */
+	function takeAction() {
+		var tag = pendingAction;
 		pendingAction = null;
+		return tag ? tag.id : null;
+	}
+
+	/**
+	 * Build the `scrivar` field for a request. Synchronous; uses the cached
+	 * document layer. `tag` is the request's own action tag (taken in
+	 * _wrapRequest); when omitted, the pending tag is taken now.
+	 */
+	function getContext(actionType, tag) {
+		var explicit = tag === undefined ? takeAction() : tag;
 		return buildContext({ explicit: explicit, actionType: actionType, layer: docLayer, toolContract: toolContract });
 	}
 
@@ -165,54 +193,71 @@
 		return false;
 	}
 
-	function ensureDocLayer() {
-		if (docLayerInflight)
-			return docLayerInflight;
-		if (docLayerLoadedAt && (Date.now() - docLayerLoadedAt) < DOC_LAYER_MAX_AGE_MS)
-			return Promise.resolve(docLayer);
-		docLayerInflight = loadDocLayer().then(function(layer) {
-			docLayerInflight = null;
-			return layer;
-		}, function() {
-			docLayerInflight = null;
+	function boundedWait(promise) {
+		var timer = null;
+		return Promise.race([
+			promise.catch(function() {}),
+			new Promise(function(resolve) { timer = setTimeout(resolve, DOC_LAYER_WAIT_MS); })
+		]).then(function() {
+			if (timer) clearTimeout(timer);
 			return docLayer;
 		});
-		return docLayerInflight;
 	}
 
-	/** Await a fresh-enough document layer (bounded wait) and put it into ctx. */
+	/**
+	 * Read the document's rules NOW (one read at a time) and wait at most
+	 * 1.5 s. Call it only where the editor runs commands: plugin init, and
+	 * before a user action starts its "Block" long action (during Block the
+	 * editor skips plugin commands). Never from background/annotator requests.
+	 */
+	function prefetchDocLayer() {
+		if (!docLayerInflight) {
+			docLayerInflight = loadDocLayer().then(function(layer) {
+				docLayerInflight = null;
+				return layer;
+			}, function() {
+				docLayerInflight = null;
+				return docLayer;
+			});
+		}
+		return boundedWait(docLayerInflight);
+	}
+
+	/**
+	 * Put the document layer into ctx. Starts NO read: it uses the cache, and
+	 * waits (bounded) only for a prefetch already in flight.
+	 */
 	async function attachDocLayer(ctx) {
 		if (!ctx)
 			return ctx;
-		var timer = null;
-		try {
-			await Promise.race([
-				ensureDocLayer(),
-				new Promise(function(resolve) { timer = setTimeout(resolve, DOC_LAYER_WAIT_MS); })
-			]);
-		} catch (e) {
-		} finally {
-			if (timer) clearTimeout(timer);
-		}
+		if (docLayerInflight)
+			await boundedWait(docLayerInflight);
 		ctx.documentRules = rulesOf(docLayer);
 		ctx.referenceIds = docLayer && Array.isArray(docLayer.referenceIds) ? docLayer.referenceIds.slice() : [];
 		return ctx;
 	}
 
-	/** Read the open document's rule layer (null when it has none). */
+	/**
+	 * Read the open document's rule layer. A definite answer replaces the
+	 * cache (null = this document has no rules); NO answer (timeout, command
+	 * skipped during a Block action) keeps the previous layer and does not
+	 * count as a refresh.
+	 */
 	async function loadDocLayer() {
-		var raw = null;
+		var res = null;
 		try {
-			raw = await DocProps.read();
+			res = await DocProps.read();
 		} catch (e) {
-			raw = null;
+			res = null;
 		}
-		docLayer = DocProps.sanitizeLayer(raw);
+		if (!res || res.ok !== true)
+			return docLayer;
+		docLayer = DocProps.sanitizeLayer(res.layer);
 		docLayerLoadedAt = Date.now();
 		return docLayer;
 	}
 
-	/** Store the document's rule layer in the file (null clears it). */
+	/** Store the document's rule layer in the file (null clears it); the cache is updated directly. */
 	async function saveDocLayer(layer) {
 		var clean = layer === null || layer === undefined ? null : DocProps.sanitizeLayer(layer);
 		await DocProps.write(clean);
@@ -315,7 +360,9 @@
 	var Scrivar = {
 		ACTION_IDS: ACTION_IDS,
 		setAction: setAction,
+		takeAction: takeAction,
 		getContext: getContext,
+		prefetchDocLayer: prefetchDocLayer,
 		attachDocLayer: attachDocLayer,
 		adoptToolContract: adoptToolContract,
 		loadDocLayer: loadDocLayer,
@@ -326,7 +373,10 @@
 		routeErrorToSubscribe: routeErrorToSubscribe,
 		isScrivarProvider: isScrivarProvider,
 		findStreamError: findStreamError,
-		docProps: DocProps
+		docProps: DocProps,
+		// test hooks (node): swap the storage layer, inspect the cache
+		_setDocProps: function(d) { DocProps = d; },
+		_state: function() { return { docLayer: docLayer, docLayerLoadedAt: docLayerLoadedAt, pending: pendingAction ? pendingAction.id : null }; }
 	};
 
 	if (typeof module !== 'undefined' && module.exports) {

@@ -436,6 +436,7 @@ async function initWithTranslate(counter) {
 		await registerButtons(window);
 		Asc.Buttons.registerContextMenu();
 		Asc.Buttons.registerToolbarMenu();
+		if (window.AI && AI.Scrivar) AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES: this document's rules, read at open
 
 		if (false && Asc.Editor.getType() === "pdf") { // SCRIVAR-TEXT-ONLY: no OCR model in Scrivar AI
 			window.Asc.plugin.attachEditorEvent("onChangeRestrictions", function(value){

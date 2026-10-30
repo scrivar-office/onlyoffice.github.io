@@ -492,6 +492,7 @@ function fetchExternal(url, options, isStreaming) {
 	};
 
 	AI.Request.prototype._wrapRequest = async function(func, data, block, streamFunc) {
+		this.scrivarAction = (window.AI && AI.Scrivar) ? AI.Scrivar.takeAction() : null; // SCRIVAR-RULES
 		let isActionRestriction = (block && (undefined !== streamFunc)) ? true : undefined;
 		if (block)
 			await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + this.modelUI.name + ")"]);
@@ -588,9 +589,9 @@ function fetchExternal(url, options, isStreaming) {
 		let headers = AI._getHeaders(provider);
 
 		// SCRIVAR-RULES: the Scrivar AI request context (action, document rules,
-		// references, tool contract). Taken synchronously before any await, so a
-		// tag set by AI.Scrivar.setAction() right before the call is this request's.
-		let scrivarCtx = (window.AI && AI.Scrivar) ? AI.Scrivar.getContext(this.actionType) : null;
+		// references, tool contract). The action is this request's own tag, taken
+		// in _wrapRequest; the document rules come from AI.Scrivar's cache.
+		let scrivarCtx = (window.AI && AI.Scrivar) ? AI.Scrivar.getContext(this.actionType, this.scrivarAction || null) : null;
 		if (scrivarCtx && !AI.Scrivar.isScrivarProvider(provider))
 			scrivarCtx = null;
 		if (scrivarCtx)
@@ -832,9 +833,9 @@ function fetchExternal(url, options, isStreaming) {
 		let headers = AI._getHeaders(provider);
 
 		// SCRIVAR-RULES: the Scrivar AI request context (action, document rules,
-		// references, tool contract). Taken synchronously before any await, so a
-		// tag set by AI.Scrivar.setAction() right before the call is this request's.
-		let scrivarCtx = (window.AI && AI.Scrivar) ? AI.Scrivar.getContext(this.actionType) : null;
+		// references, tool contract). The action is this request's own tag, taken
+		// in _wrapRequest; the document rules come from AI.Scrivar's cache.
+		let scrivarCtx = (window.AI && AI.Scrivar) ? AI.Scrivar.getContext(this.actionType, this.scrivarAction || null) : null;
 		if (scrivarCtx && !AI.Scrivar.isScrivarProvider(provider))
 			scrivarCtx = null;
 		if (scrivarCtx)

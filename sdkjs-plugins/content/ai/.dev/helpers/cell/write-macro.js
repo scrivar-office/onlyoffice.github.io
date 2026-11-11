@@ -68,8 +68,7 @@ The return value of the last expression will be the tool's output.`,
 - To set number format: range.SetNumberFormat(sFormat) e.g. "0.00", "#,##0", "0%", "mm/dd/yyyy"
 - To set column width: ws.SetColumnWidth(nCol, nWidth) — nCol is 0-based index
 - To set row height: ws.SetRowHeight(nRow, nHeight) — nRow is 0-based index
-- To get rows count in used range: ws.GetUsedRange().GetRows().Count
-- To get columns count in used range: ws.GetUsedRange().GetCols().Count
+- To get the extent of the data (SCRIVAR-COUNTS): ws.GetUsedRange().GetAddress(false, false, "xlA1", false) returns e.g. "A1:D25"; read the last column letter and last row number from that string, or from the CURRENT CONTEXT block. Do NOT use GetRows().Count or GetCols().Count: they are unreliable in this version.
 - Range formatting: range.SetBold(true), range.SetItalic(true), range.SetUnderline(true), range.SetStrikeout(true), range.SetFontSize(nSize), range.SetFontName(sFontName), range.SetFontColor(Api.CreateColorFromRGB(r, g, b))
 - Fill color: range.SetFillColor(Api.CreateColorFromRGB(r, g, b))
 - Borders: range.SetBorders(sBorderType, sLineStyle, Api.CreateColorFromRGB(r, g, b)) — sBorderType: "Top","Bottom","Left","Right","InsideHorizontal","InsideVertical","DiagonalDown","DiagonalUp"
@@ -118,8 +117,8 @@ ws.GetRange("B11").SetValue("=SUM(B1:B10)");`
 				"arguments": { "code": `\
 var ws = Api.GetActiveSheet();
 var values = [];
-var usedRange = ws.GetUsedRange();
-var rowCount = usedRange.GetRows().Count;
+var lastRow = parseInt(ws.GetUsedRange().GetAddress(false, false, "xlA1", false).split(":").pop().replace(/[A-Z]/g, ""), 10);
+var rowCount = lastRow;
 for (var i = 1; i <= rowCount; i++) {
 	values.push(ws.GetRange("A" + i).GetValue());
 }
@@ -130,24 +129,15 @@ values;`
 	});
 
 	func.call = async function(params) {
-		Asc.scope.macroCode = params.code;
-		let returnValue = await Asc.Editor.callCommand(function() {
-			try {
-				var __result = eval(Asc.scope.macroCode);
-				if (__result !== undefined && __result !== null) {
-					return { onlyoffice_id_result: __result };
-				}
-			} catch(e) {
-				return { onlyoffice_id_error_message: e.name + ": " + e.message };
-			}
-		});
+		// SCRIVAR-AGENT: inline execution (a nested eval is a no-op in the editor sandbox)
+		let returnValue = await Asc.Editor.runMacro(params.code);
 
-		if (returnValue && returnValue.onlyoffice_id_error_message) {
-			throw new window.AgentState.ToolError(returnValue.onlyoffice_id_error_message);
+		if (returnValue.error) {
+			throw new window.AgentState.ToolError(returnValue.error);
 		}
 
-		if (returnValue && returnValue.onlyoffice_id_result !== undefined) {
-			return returnValue.onlyoffice_id_result;
+		if (returnValue.result !== undefined) {
+			return returnValue.result;
 		}
 	};
 

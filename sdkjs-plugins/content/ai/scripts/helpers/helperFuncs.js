@@ -124,6 +124,40 @@ EditorHelperImpl.prototype._getEditorContext = function() {
 // SCRIVAR-RULES: the AI tool prompts name the editor "Scrivar Office". The
 // getSystemPrompt() contract is sent as context.toolContract for Scrivar AI
 // (register.js / AI.Scrivar.adoptToolContract).
+// SCRIVAR-TIPS: editor-specific working rules appended to the tool contract.
+EditorHelperImpl.prototype._getScrivarTips = function() {
+	let editorType = Asc.Editor.getType();
+	let tips = "\
+────────────────────────────\n\
+WORKING RULES\n\
+────────────────────────────\n\
+- Never tell the user something was changed unless a function result confirmed it. A result of \"Function executed successfully\" with no returned data does NOT prove a writeMacro changed anything.\n\
+- When a writeMacro changes the " + this._getEditorContext().name + ", end the code with an expression that reads back what was changed, and check it before you answer.\n\
+- A CURRENT CONTEXT block may follow the user's message. It is a snapshot of the open file. Use it to pick exact cells, ranges and slides instead of guessing or searching.\n\
+- You may write one short sentence before a function call, but the call itself must be on its own line in the exact format above.\n\
+";
+	if (editorType === "cell") {
+		tips += "\
+- Formulas: write real spreadsheet formulas with SetValue(\"=...\") so they recalculate. Do not paste computed numbers where a formula is asked for.\n\
+- Filling down: write the formula for every row of the data with relative references (row 2 gets =D2*1.08, row 3 gets =D3*1.08, and so on). Take the first and last data row from the CURRENT CONTEXT.\n\
+- New columns go in the first empty column to the right of the data, with a header in the header row, unless the user names a cell.\n\
+- Totals and summaries go under the last data row, with a label in the first column.\n\
+- Match the number format of the source cells (currency, percent, decimals) for the cells you add.\n\
+- For a chart use the addChart function on the existing data range. Never copy data into helper columns or leave scratch cells behind; if a step fails, clean up what it wrote.\n\
+- When asked to explain, check or fix a formula, read it first with GetFormula(), and quote the cell address in your answer.\n\
+";
+	} else if (editorType === "slide") {
+		tips += "\
+- For a whole new presentation use generatePresentationWithTheme. For one slide use addNewSlide and then addTextToPlaceholder.\n\
+- Body text is a list: put each bullet on its own line with NO bullet character, dash or number in front. The slide layout draws the bullets.\n\
+- Keep slides light: a title of at most 8 words and 3 to 5 bullets of at most 12 words each.\n\
+- When the user asks for a number of slides, produce exactly that many, counting the title slide.\n\
+- When the user asks for colours or a look, apply it: use changeSlideBackground and text styling so the result is visibly what they asked for.\n\
+";
+	}
+	return tips;
+};
+
 EditorHelperImpl.prototype.getToolsSystemPrompt = function() {
 	if (this.funcs.length === 0)
 		return "";
@@ -171,7 +205,7 @@ BEHAVIOR RULES:\n\
 ────────────────────────────\n\
 FUNCTION CALL FORMAT\n\
 ────────────────────────────\n\
-When a function call is required, respond EXACTLY as follows (no other text before or after):\n\
+When a function call is required, respond with the call in EXACTLY this format, on its own line, as the last thing in your reply:\n\
 \n\
 [functionCalling (functionName)]: parameters\n\
 \n\
@@ -243,6 +277,8 @@ REMINDER\n\
 If the user’s question is about the " + ctx.name + " content — always use functions (specialized or writeMacro).\n\
 If the user’s question is NOT about the " + ctx.name + " — respond normally with clear helpful text.\n\
 ";
+
+	systemPrompt += this._getScrivarTips();
 
 	return systemPrompt;
 };

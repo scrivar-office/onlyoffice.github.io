@@ -159,8 +159,8 @@
 	/** The chat's Subscribe banner (SCRIVAR-SUBSCRIBE): same copy, same action. */
 	function subscribeBanner() {
 		return el('div', { class: 'sv-subscribe' }, [
-			el('div', { class: 'sv-subscribe-msg', text: tr('Cloud & AI is not active. Subscribe to use AI features.') }),
-			el('button', { type: 'button', class: 'form-control btn-text-default sv-subscribe-btn', text: tr('Subscribe to Cloud & AI'), onclick: openManage })
+			el('div', { class: 'sv-subscribe-msg', text: tr('Try the AI free for 30 days, no card needed, or subscribe to Cloud & AI.') /* SCRIVAR-TRIAL */ }),
+			el('button', { type: 'button', class: 'form-control btn-text-default sv-subscribe-btn', text: tr('Start free trial or subscribe'), onclick: openManage })
 		]);
 	}
 

@@ -172,6 +172,7 @@ test('buildContext uses the explicit action, else a mapping from the ActionType'
 		documentRules: { voice: 'Plain', avoid: ['delve'], rules: [{ id: 'r', text: 'Short sentences.', defaultKey: null }] },
 		referenceIds: [4],
 		toolContract: null,
+		editor: null, // no editor info in this harness
 	});
 	assert.equal(context.buildContext({ actionType: 'Summarization' }).action, 'summarize');
 	assert.equal(context.buildContext({ actionType: 'Translation' }).action, 'translate');

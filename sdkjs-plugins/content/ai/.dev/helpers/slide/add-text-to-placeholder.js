@@ -191,6 +191,12 @@
 				}
 
 				let lines = Asc.scope.text.split('\n').filter(line => line.trim() !== '');
+				// SCRIVAR-BULLETS: a layout body placeholder draws its own bullets
+				if (!bNewShape && placeholderGroups.content.includes(foundType)) {
+					lines = lines.map(function(line) {
+						return line.replace(/^\s*[\u2022\u00B7\u25CF\u25E6\u2023\u2013\u2014*-]\s+/, '');
+					});
+				}
 
 				if (lines.length === 1) {
 					let paragraph = internalContent.GetElement(0);

@@ -40,7 +40,7 @@
 			"properties": {
 				"topic": {
 					"type": "string",
-					"description": "presentation topic"
+					"description": "presentation topic, including every specific point, section or fact the user asked to be covered"
 				},
 				"slideCount": {
 					"type": "string",
@@ -48,7 +48,7 @@
 				},
 				"style": {
 					"type": "string",
-					"description": "visual style - modern, classic, minimal, corporate"
+					"description": "the look the user asked for, in their own words (SCRIVAR-DECK): colours or palette, mood, audience, tone. Free text, for example: colourful, teal and orange, playful, for a school audience. Use modern when the user gave no preference."
 				}
 			},
 			"required": []
@@ -1388,7 +1388,8 @@ const prompt = `
 You must stream a sequence of JSON objects (JSON Lines). Each line is one complete JSON object with a field "t".
 ABSOLUTELY NO prose, no markdown, no code fences — only JSON objects, one per line.
 
-Goal: generate a complete PPTX presentation about "${topic}" ${goalSlidesText} in ${style} style.
+Goal: generate a complete PPTX presentation about "${topic}" ${goalSlidesText}.
+Requested look (binding): ${style}. If it names colours, a palette or a mood, choose theme.colors and layoutDecor fills that visibly match it, and keep text readable against them.
 ${slideCountContract}
 
 AVAILABLE FONTS (use only these for theme.fonts):

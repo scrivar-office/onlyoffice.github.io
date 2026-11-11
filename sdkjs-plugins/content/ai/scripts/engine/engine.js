@@ -905,6 +905,37 @@ function fetchExternal(url, options, isStreaming) {
 			let isBufferingFunction = false;
 			let functionBuffer = "";
 
+			// SCRIVAR-AGENT: a tool call may follow a sentence of prose. Stream
+			// the prose, never the call: stop at the marker wherever it appears
+			// (holding back a tail that could be the start of one).
+			let scrivarStreamed = 0;
+			async function scrivarFlush(isFinal) {
+				if (isBufferingFunction)
+					return;
+				let mark = "[functionCalling";
+				let at = allContent.indexOf(mark);
+				let end = allContent.length;
+				if (at >= 0) {
+					end = at;
+				} else if (!isFinal) {
+					for (let n = Math.min(mark.length - 1, allContent.length); n > 0; n--) {
+						if (allContent.endsWith(mark.substring(0, n))) {
+							end = allContent.length - n;
+							break;
+						}
+					}
+				}
+				if (end > scrivarStreamed) {
+					let part = allContent.substring(scrivarStreamed, end);
+					scrivarStreamed = end;
+					await streamFunc(part);
+				}
+				if (at >= 0) {
+					isBufferingFunction = true;
+					functionBuffer = allContent.substring(at);
+				}
+			}
+
 			let allTools = Object.create(null);
 
 			while (true) {
@@ -994,7 +1025,7 @@ function fetchExternal(url, options, isStreaming) {
 
 					allContent += chunkContent;
 					if (isSimpleStream) {
-						await streamFunc(chunkContent);
+						await scrivarFlush(false);
 					} else if (isBufferingFunction) {
 						functionBuffer += chunkContent;
 					} else {
@@ -1005,7 +1036,7 @@ function fetchExternal(url, options, isStreaming) {
 							if (!allContent.startsWith(testFuncCalling)) {
 								isSimpleStream = true;
 								functionBuffer = "";
-								await streamFunc(allContent);
+								await scrivarFlush(false);
 							} else {
 								isBufferingFunction = true;
 								functionBuffer = testAllContent;
@@ -1015,13 +1046,15 @@ function fetchExternal(url, options, isStreaming) {
 						} else {
 							isSimpleStream = true;
 							functionBuffer = "";
-							await streamFunc(allContent);
+							await scrivarFlush(false);
 						}
 					}
 				}				
 			}
 
-			if (!window.AgentState.isStopped && !isBufferingFunction && functionBuffer.length > 0) {
+			if (!window.AgentState.isStopped && isSimpleStream) {
+				await scrivarFlush(true);
+			} else if (!window.AgentState.isStopped && !isBufferingFunction && functionBuffer.length > 0) {
 				await streamFunc(allContent);
 			}
 

@@ -6,7 +6,7 @@
  * AI.Scrivar: the request context the Scrivar AI provider sends with every
  * chat completion, as body field `scrivar`:
  *
- *   { action, documentRules, referenceIds, toolContract }
+ *   { action, documentRules, referenceIds, toolContract, editor }
  *
  * The resident launcher's loopback proxy (http://127.0.0.1:41317) forwards it
  * and the server builds the whole system prompt (persona + the user's rules +
@@ -71,6 +71,14 @@
 		}) };
 	}
 
+	/** 'word' | 'cell' | 'slide' | 'pdf' | null: which editor this request comes from. */
+	function editorKind() {
+		var info = (root.Asc && root.Asc.plugin && root.Asc.plugin.info) || {};
+		if (info.editorSubType === 'pdf' || info.editorType === 'pdf')
+			return 'pdf';
+		return (info.editorType === 'word' || info.editorType === 'cell' || info.editorType === 'slide') ? info.editorType : null;
+	}
+
 	/**
 	 * { explicit, actionType, layer (sanitized), toolContract } -> the `scrivar` body field.
 	 * The tool contract rides only on an explicitly tagged chat turn: chat tool
@@ -89,7 +97,8 @@
 			action: action,
 			documentRules: rulesOf(layer),
 			referenceIds: layer && Array.isArray(layer.referenceIds) ? layer.referenceIds.slice() : [],
-			toolContract: contract
+			toolContract: contract,
+			editor: editorKind() // SCRIVAR-EDITOR
 		};
 	}
 

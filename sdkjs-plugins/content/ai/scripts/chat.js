@@ -489,6 +489,74 @@
 	];
 
 
+	// SCRIVAR-WELCOME: what the AI does in THIS editor, and starting points for it.
+	let scrivarWelcome = {
+		cell: {
+			intro: "I work directly in your spreadsheet. Ask me to write or fix a formula, fill it down a column, add totals, sort and filter, build a chart or pivot table, or highlight what matters.",
+			outro: "Tell me what you want to calculate and I will put it in the sheet.",
+			buttons: [
+				{ text: 'Write a formula', prompt: 'Write a formula that' },
+				{ text: 'Explain this formula', prompt: 'Explain the formula in the selected cell' },
+				{ text: 'Fix this formula', prompt: 'Fix the formula in the selected cell' },
+				{ text: 'Fill down', prompt: 'Fill the formula in the selected cell down to the last row of my data' },
+				{ text: 'Add totals', prompt: 'Add a totals row under my data' },
+				{ text: 'Make a chart', prompt: 'Create a chart of' },
+				{ text: 'Pivot table', prompt: 'Create a pivot table that summarizes' },
+				{ text: 'Sort', prompt: 'Sort my data by' },
+				{ text: 'Highlight', prompt: 'Highlight the cells where' },
+				{ text: 'Find duplicates', prompt: 'Highlight duplicate values in' },
+				{ text: 'Summarize my data', prompt: 'Summarize the data on this sheet' }
+			]
+		},
+		slide: {
+			intro: "I build and edit your presentation. Give me a topic and I will draft the whole deck, or ask me to add a slide, write the bullet points, add a table, chart or shape, or restyle a slide.",
+			outro: "Say how many slides you want and what look you are after.",
+			buttons: [
+				{ text: 'Create a deck', prompt: 'Create an 8-slide presentation about' },
+				{ text: 'Add a slide', prompt: 'Add a slide about' },
+				{ text: 'Write bullet points', prompt: 'Write three bullet points on this slide about' },
+				{ text: 'Add a table', prompt: 'Add a table to this slide showing' },
+				{ text: 'Add a chart', prompt: 'Add a chart to this slide showing' },
+				{ text: 'Change the background', prompt: 'Change the background of this slide to' },
+				{ text: 'Tighten this slide', prompt: 'Rewrite the text on this slide to be shorter and clearer' },
+				{ text: 'Summarize the deck', prompt: 'Summarize this presentation in five bullet points' }
+			]
+		},
+		pdf: {
+			intro: "Ask me about this PDF. I can summarize it, pull out the key points, dates, names and amounts, explain a passage in plain language, or translate it.",
+			outro: "Select text first to ask about just that part.",
+			buttons: [
+				{ text: 'Summarize', prompt: 'Summarize this document' },
+				{ text: 'Key points', prompt: 'List the key points of this document' },
+				{ text: 'Dates and amounts', prompt: 'List every date, deadline and amount in this document' },
+				{ text: 'Explain simply', prompt: 'Explain this in plain language:' },
+				{ text: 'Action items', prompt: 'List what this document asks me to do' },
+				{ text: 'Translate', prompt: 'Translate this into' },
+				{ text: 'Draft a reply', prompt: 'Draft a reply to this document that' }
+			]
+		}
+	};
+
+	function scrivarEditorKind() {
+		let info = window.Asc.plugin.info || {};
+		if (info.editorSubType === "pdf" || info.editorType === "pdf")
+			return "pdf";
+		return info.editorType;
+	}
+
+	function scrivarApplyWelcome() {
+		let cfg = scrivarWelcome[scrivarEditorKind()];
+		if (!cfg)
+			return;
+		welcomeButtons.length = 0;
+		cfg.buttons.forEach(function(b) { welcomeButtons.push({ text: b.text, prompt: b.prompt }); });
+		let spans = $("#welcome_text span.i18n");
+		if (spans.length >= 2) {
+			$(spans[0]).text(window.Asc.plugin.tr(cfg.intro));
+			$(spans[1]).text(window.Asc.plugin.tr(cfg.outro));
+		}
+	}
+
 	function insertEngine(type, text) {
 		window.Asc.plugin.sendToPlugin("onChatReplace", {
 			type : type,
@@ -602,8 +670,24 @@
 			try {
 				fetch('http://127.0.0.1:41317/status').then(function(r){ return r.json(); }).then(function(st){
 					var existing = document.getElementById('scrivar-subscribe-cta');
+					// SCRIVAR-TRIAL: during a free AI trial a slim line shows the days left.
+					var trialNote = document.getElementById('scrivar-trial-note');
+					var daysLeft = (st && st.subscribed && st.trial && st.trial.daysLeft > 0) ? st.trial.daysLeft : 0;
+					if (!daysLeft && trialNote) trialNote.remove();
 					if (st && st.subscribed) {
 						if (existing) existing.remove();
+						if (daysLeft) {
+							var host = document.getElementById('chat_window'), before = document.getElementById('chat_wrapper');
+							if (!trialNote && host && before) {
+								trialNote = document.createElement('div');
+								trialNote.id = 'scrivar-trial-note';
+								trialNote.style.cssText = 'margin:0 0 8px 0;padding:6px 10px;border:1px solid var(--border-Regular,#e0e0e0);border-radius:8px;text-align:center;font-size:12px;flex-shrink:0;cursor:pointer;';
+								trialNote.addEventListener('click', function(){ window.open('scrivar-office://manage'); });
+								host.insertBefore(trialNote, before);
+							}
+							if (trialNote)
+								trialNote.textContent = window.Asc.plugin.tr('Free AI trial') + ': ' + daysLeft + ' ' + window.Asc.plugin.tr(daysLeft === 1 ? 'day left' : 'days left') + ' · ' + window.Asc.plugin.tr('Subscribe');
+						}
 						return;
 					}
 					if (existing) return;
@@ -615,10 +699,10 @@
 					cta.style.cssText = 'margin:0 0 8px 0;padding:10px 12px;border:1px solid var(--border-Regular,#e0e0e0);border-radius:8px;text-align:center;flex-shrink:0;';
 					var msg = document.createElement('div');
 					msg.style.cssText = 'font-size:13px;margin-bottom:8px;';
-					msg.textContent = window.Asc.plugin.tr('Cloud & AI is not active. Subscribe to use AI features.');
+					msg.textContent = window.Asc.plugin.tr('Try the AI free for 30 days, no card needed, or subscribe to Cloud & AI.');
 					var btn = document.createElement('button');
 					btn.className = 'form-control btn-text-default';
-					btn.textContent = window.Asc.plugin.tr('Subscribe to Cloud & AI');
+					btn.textContent = window.Asc.plugin.tr('Start free trial or subscribe');
 					btn.addEventListener('click', function(){ window.open('scrivar-office://manage'); });
 					cta.appendChild(msg); cta.appendChild(btn);
 					win.insertBefore(cta, wrapper);
@@ -626,6 +710,10 @@
 			} catch (e) {}
 		};
 		window.scrivarRefreshCta();
+		// SCRIVAR-TRIAL: keep the banner honest without waiting for a reply
+		// (a trial started or a subscription bought in the launcher window).
+		setInterval(function() { if (!document.hidden) window.scrivarRefreshCta(); }, 20000);
+		window.addEventListener('focus', function() { window.scrivarRefreshCta(); });
 
 		document.getElementById("chat_wrapper").addEventListener("click", function(e) {
 			if (e.target.tagName === "A") {
@@ -1007,11 +1095,16 @@
 			button.tipOptions.text = window.Asc.plugin.tr(button.tipOptions.text);
 		});
 
+		scrivarApplyWelcome(); // SCRIVAR-WELCOME: before the labels are translated
 		//Welcome buttons
 		welcomeButtons.forEach(function(button) {
 			button.text = window.Asc.plugin.tr(button.text);
 			button.prompt = window.Asc.plugin.tr(button.prompt);
 		});
+		if ($('#welcome_buttons_list').children().length) { // already drawn with the default set
+			$('#welcome_buttons_list').empty();
+			renderWelcomeButtons();
+		}
 
 		//Reply errors
 		for (var key in errorsMap) {

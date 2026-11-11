@@ -112,9 +112,9 @@ window.Asc.plugin.init = function() {
 				var a = document.createElement('span'); a.className = 'i18n'; a.textContent = ': Active';
 				row.appendChild(b); row.appendChild(a);
 			} else {
-				var lbl = document.createElement('span'); lbl.className = 'i18n'; lbl.textContent = 'Cloud & AI is not active.';
+				var lbl = document.createElement('span'); lbl.className = 'i18n'; lbl.textContent = 'Cloud & AI is not active. Try the AI free for 30 days, no card needed.'; /* SCRIVAR-TRIAL */
 				var btn = document.createElement('button'); btn.className = 'form-control btn-text-default i18n';
-				btn.style.cssText = 'display:block;margin-top:6px;'; btn.textContent = 'Subscribe to Cloud & AI';
+				btn.style.cssText = 'display:block;margin-top:6px;'; btn.textContent = 'Start free trial or subscribe';
 				btn.addEventListener('click', function(){ window.open('scrivar-office://manage'); });
 				row.appendChild(lbl); row.appendChild(btn);
 			}

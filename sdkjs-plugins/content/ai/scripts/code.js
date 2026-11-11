@@ -434,6 +434,7 @@ async function initWithTranslate(counter) {
 		await AI.loadInternalProviders();
 		await AI.loadHelperTranslations();
 		await registerButtons(window);
+		await AI.Storage.preinstall(); // SCRIVAR-HEAL: AI.Actions exists only now; fills unset action models
 		Asc.Buttons.registerContextMenu();
 		Asc.Buttons.registerToolbarMenu();
 		if (window.AI && AI.Scrivar) AI.Scrivar.prefetchDocLayer(); // SCRIVAR-RULES: this document's rules, read at open

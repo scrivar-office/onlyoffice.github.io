@@ -205,8 +205,8 @@
 				existing = JSON.parse(window.localStorage.getItem(localStorageKey));
 			} catch (e) {
 			}
-			if (existing && existing.version === AI.Storage.Version)
-				return;
+			// SCRIVAR-HEAL: keep going when storage exists, to fill unset actions
+			let scrivarSeeded = !!(existing && existing.version === AI.Storage.Version);
 
 			let text = await AI.loadResourceAsText("./preinstall.json");
 			if (!text)
@@ -216,7 +216,8 @@
 			if (!pre || !pre.providers)
 				return;
 
-			window.localStorage.setItem(localStorageKey, JSON.stringify({
+			if (!scrivarSeeded)
+				window.localStorage.setItem(localStorageKey, JSON.stringify({
 				version : AI.Storage.Version,
 				providers : pre.providers,
 				models : pre.models || [],

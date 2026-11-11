@@ -135,24 +135,15 @@ oSlide.SetBackground(oFill);`
 	});
 
 	func.call = async function(params) {
-		Asc.scope.macroCode = params.code;
-		let returnValue = await Asc.Editor.callCommand(function() {
-			try {
-				var __result = eval(Asc.scope.macroCode);
-				if (__result !== undefined && __result !== null) {
-					return { onlyoffice_id_result: __result };
-				}
-			} catch(e) {
-				return { onlyoffice_id_error_message: e.name + ": " + e.message };
-			}
-		});
+		// SCRIVAR-AGENT: inline execution (a nested eval is a no-op in the editor sandbox)
+		let returnValue = await Asc.Editor.runMacro(params.code);
 
-		if (returnValue && returnValue.onlyoffice_id_error_message) {
-			throw new window.AgentState.ToolError(returnValue.onlyoffice_id_error_message);
+		if (returnValue.error) {
+			throw new window.AgentState.ToolError(returnValue.error);
 		}
 
-		if (returnValue && returnValue.onlyoffice_id_result !== undefined) {
-			return returnValue.onlyoffice_id_result;
+		if (returnValue.result !== undefined) {
+			return returnValue.result;
 		}
 	};
 

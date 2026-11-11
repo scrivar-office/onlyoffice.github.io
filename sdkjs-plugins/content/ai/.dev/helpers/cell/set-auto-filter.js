@@ -234,7 +234,7 @@
 
 			let criteria1 = Asc.scope.criteria1;
 			if (criteria1 && criteria1.startsWith && (criteria1.startsWith("[") || criteria1.startsWith("{")))
-				criteria1 = eval(criteria1);
+				try { criteria1 = JSON.parse(criteria1); } catch (e) { /* SCRIVAR-AGENT: eval is stubbed in the sandbox; keep the string */ }
 			if (Asc.scope.operator === "xlFilterCellColor" || Asc.scope.operator === "xlFilterFontColor") {
 				if (criteria1 && typeof criteria1 === 'object' && criteria1.r !== undefined && criteria1.g !== undefined && criteria1.b !== undefined) {
 					criteria1 = Api.CreateColorFromRGB(criteria1.r, criteria1.g, criteria1.b);

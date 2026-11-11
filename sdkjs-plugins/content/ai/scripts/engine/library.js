@@ -57,6 +57,183 @@
 		})());
 	};
 
+	// SCRIVAR-AGENT: run model-written macro code in the editor.
+	// The editor's command sandbox (AscCommon.safePluginEval) stubs out any
+	// nested eval and the Function constructor, so the code cannot be handed
+	// over in Asc.scope and eval'ed there. It is placed inline in the command
+	// text instead. Asc.plugin.callCommand builds that text as
+	//   "...; (" + func.toString() + ")();"
+	// so toString() closes that wrapper early, runs the code inside try/catch,
+	// and reopens a harmless declaration for the trailing ")();". The command's
+	// completion value is then the macro's last expression (a `var` statement
+	// has no completion value), or the error object from the catch.
+	// -> { error: string } | { result: any } | {} (ran, nothing returned)
+	Editor.runMacro = async function(code)
+	{
+		code = String(code === undefined || code === null ? "" : code);
+		try {
+			// Syntax check here, where Function still works: the editor drops
+			// invalid JS without telling the plugin.
+			new Function("\"use strict\";\n" + code);
+		} catch (e) {
+			return { error: e.name + ": " + e.message };
+		}
+		let command = {
+			toString : function() {
+				return "function(){})();\n" +
+					"try {\n" + code + "\n} catch (__scrivarErr) { ({ onlyoffice_id_error_message: __scrivarErr.name + \": \" + __scrivarErr.message }) }\n" +
+					"var __scrivarTail = (function(){ return 0; }";
+			}
+		};
+		let ret = await Editor.callCommand(command);
+		if (ret && typeof ret === "object" && ret.onlyoffice_id_error_message)
+			return { error: ret.onlyoffice_id_error_message };
+		if (ret === undefined || ret === null)
+			return {};
+		return { result: ret };
+	};
+
+	// SCRIVAR-CONTEXT: a compact snapshot of the open file for the chat agent.
+	// -> string ("" when there is nothing useful or the editor has none)
+	Editor.getContextSnapshot = async function()
+	{
+		let type = Editor.getType();
+		let ret = null;
+		try {
+			if (type === "cell") {
+				ret = await Editor.callCommand(function() {
+					try {
+						var ws = Api.GetActiveSheet();
+						var out = { sheet: ws.GetName(), rows: [] };
+						var sel = Api.GetSelection();
+						if (sel) out.selection = sel.GetAddress(false, false, "xlA1", false);
+						var used = ws.GetUsedRange();
+						if (!used) return JSON.stringify(out);
+						out.used = used.GetAddress(false, false, "xlA1", false);
+						// Rows/columns come from the ADDRESS: in this engine build
+						// GetRows().Count and GetCols().Count return each other's value.
+						var m = /^([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/.exec(out.used);
+						if (!m) return JSON.stringify(out);
+						var colNum = function(s) { var n = 0; for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64); return n; };
+						var r0 = parseInt(m[2], 10), c0 = colNum(m[1]);
+						var nRows = (m[4] ? parseInt(m[4], 10) : r0) - r0 + 1, nCols = (m[3] ? colNum(m[3]) : c0) - c0 + 1;
+						out.firstRow = r0; out.lastRow = r0 + nRows - 1;
+						var maxR = Math.min(nRows, 25), maxC = Math.min(nCols, 12);
+						var colName = function(n) { var s = ""; while (n > 0) { var m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+						out.lastCol = colName(c0 + nCols - 1);
+						for (var r = 0; r < maxR; r++) {
+							var cells = [];
+							for (var c = 0; c < maxC; c++) {
+								var cell = ws.GetRange(colName(c0 + c) + (r0 + r));
+								var f = cell.GetFormula();
+								var v = cell.GetValue();
+								var text = (f && String(f).charAt(0) === "=") ? (f + " -> " + v) : String(v === null || v === undefined ? "" : v);
+								if (text.length > 40) text = text.substring(0, 40) + "...";
+								cells.push(text);
+							}
+							out.rows.push({ n: r0 + r, cells: cells });
+						}
+						out.firstCol = colName(c0);
+						out.moreRows = nRows - maxR; out.moreCols = nCols - maxC;
+						return JSON.stringify(out);
+					} catch (e) { return ""; }
+				});
+				if (!ret) return "";
+				let o = JSON.parse(ret);
+				let text = "Sheet: " + o.sheet + "\n";
+				if (o.selection) text += "Selected: " + o.selection + "\n";
+				if (!o.used || !o.rows.length) return text + "The sheet is empty.";
+				text += "Data range: " + o.used + " (rows " + o.firstRow + " to " + o.lastRow + ", columns " + o.firstCol + " to " + o.lastCol + ")\n";
+				text += "Cells, row by row, starting at column " + o.firstCol + ", separated by | (formulas shown as formula -> value):\n";
+				o.rows.forEach(function(row) { text += row.n + ": " + row.cells.join(" | ") + "\n"; });
+				if (o.moreRows > 0) text += "... " + o.moreRows + " more rows not shown\n";
+				if (o.moreCols > 0) text += "... " + o.moreCols + " more columns not shown\n";
+				return text.length > 6000 ? text.substring(0, 6000) + "\n... (truncated)" : text;
+			}
+			if (type === "slide") {
+				ret = await Editor.callCommand(function() {
+					try {
+						var p = Api.GetPresentation();
+						var n = p.GetSlidesCount();
+						var out = { count: n, current: p.GetCurSlideIndex() + 1, slides: [] };
+						for (var i = 0; i < n && i < 40; i++) {
+							var title = "", body = 0;
+							var drawings = p.GetSlideByIndex(i).GetAllDrawings();
+							for (var j = 0; j < drawings.length; j++) {
+								var ph = drawings[j].GetPlaceholder ? drawings[j].GetPlaceholder() : null;
+								var dc = drawings[j].GetDocContent ? drawings[j].GetDocContent() : null;
+								if (!dc) continue;
+								var t = "";
+								for (var k = 0; k < dc.GetElementsCount(); k++) { var el = dc.GetElement(k); if (el && el.GetText) t += el.GetText() + " "; }
+								t = t.replace(/\s+/g, " ").trim();
+								var kind = ph ? ph.GetType() : "";
+								if (!title && (kind === "title" || kind === "ctrTitle")) title = t;
+								else if (t) body++;
+							}
+							out.slides.push({ title: title.substring(0, 80), body: body });
+						}
+						return JSON.stringify(out);
+					} catch (e) { return ""; }
+				});
+				if (!ret) return "";
+				let o = JSON.parse(ret);
+				let text = "Presentation: " + o.count + " slide(s). Current slide: " + o.current + ".\n";
+				o.slides.forEach(function(sl, i) { text += "Slide " + (i + 1) + ": " + (sl.title ? "\"" + sl.title + "\"" : "(no title)") + (sl.body ? ", " + sl.body + " text block(s)" : ", no body text") + "\n"; });
+				return text;
+			}
+		} catch (e) {
+			return "";
+		}
+		return "";
+	};
+
+	// SCRIVAR-PDF: the text of the open PDF, page by page, for the chat.
+	// Uses the PDF scripting API (page selection -> selected text), then
+	// collapses the selection again. -> string ("" when there is no text layer)
+	Editor.getPdfText = async function(maxChars)
+	{
+		if (Editor.getType() !== "pdf")
+			return "";
+		Asc.scope.scrivarPdfMax = maxChars || 40000;
+		let ret = null;
+		try {
+			ret = await Editor.callCommand(function() {
+				try {
+					var doc = Api.GetDocument();
+					var n = doc.GetPagesCount();
+					var max = Asc.scope.scrivarPdfMax;
+					var out = { pages: n, read: 0, text: "", cut: false };
+					var far = { x: 100000, y: 100000 }, origin = { x: 0, y: 0 };
+					var last = null;
+					for (var i = 0; i < n; i++) {
+						var page = doc.GetPage(i);
+						if (!page) continue;
+						page.SetSelection(origin, far);
+						last = page;
+						var t = page.GetSelectedText() || "";
+						t = String(t).replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+						if (t) out.text += "[Page " + (i + 1) + "]\n" + t + "\n\n";
+						out.read = i + 1;
+						if (out.text.length >= max) { out.text = out.text.substring(0, max); out.cut = true; break; }
+					}
+					if (last) last.SetSelection(origin, origin);
+					return JSON.stringify(out);
+				} catch (e) { return ""; }
+			});
+		} catch (e) {
+			return "";
+		}
+		if (!ret) return "";
+		let o;
+		try { o = JSON.parse(ret); } catch (e) { return ""; }
+		if (!o.text)
+			return "This PDF has " + o.pages + " page(s) but no readable text layer (it may be a scan). Tell the user that, and that you can only work with text they select or paste.";
+		let head = "PDF with " + o.pages + " page(s).";
+		if (o.cut || o.read < o.pages)
+			head += " Only the first part is included below (through page " + o.read + "); say so if the answer may depend on later pages.";
+		return head + "\n\n" + o.text;
+	};
+
 	Editor.pause = async function(msec)
 	{
 		return new Promise(resolve => (function(){
